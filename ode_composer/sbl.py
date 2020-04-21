@@ -13,11 +13,11 @@ class SBL(object):
 
     def data_fit(self, w):
         return (1.0 / 2.0) * cp.pnorm(
-            self.linear_model.dict_mtx @ w - self.linear_model.data_vec, p=2
+            self.linear_model.data_vec - self.linear_model.dict_mtx @ w, p=2
         ) ** 2
 
     def regularizer(self, w):
-        return cp.pnorm(np.sqrt(self.z).T * w, p=1)
+        return np.sqrt(self.z).T * cp.atoms.elementwise.abs.abs(w)
 
     def objective_fn(self, w):
         return self.data_fit(

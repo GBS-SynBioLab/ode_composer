@@ -52,7 +52,7 @@ class LinearModel(object):
     def lambda_param(self, new_lambda_param: float):
         if not isinstance(new_lambda_param, float):
             raise TypeError(
-                "lambda param is %s, it must be int!" % new_lambda_param
+                "lambda param is %s, it must be float!" % new_lambda_param
             )
         if new_lambda_param < 0:
             raise ValueError(
