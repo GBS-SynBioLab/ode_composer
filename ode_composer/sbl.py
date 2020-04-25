@@ -1,15 +1,18 @@
+import copy
 import cvxpy as cp
 import numpy as np
-from typing import List
+from typing import List, Dict, Union
 from .linear_model import LinearModel
+from .dictionary_builder import MultiVariableFunction
 
 
 class SBL(object):
-    def __init__(self, linear_model: LinearModel):
+    def __init__(self, linear_model: LinearModel, dict_fcns: List[str] = None):
         self.linear_model = linear_model
         self.z = np.ones((self.linear_model.parameter_num, 1))
         self.w_estimates: List[float] = list()
         self.z_estimates: List[float] = list()
+        self.dict_fcns: List[str] = dict_fcns
 
     def data_fit(self, w):
         return (1.0 / 2.0) * cp.pnorm(
@@ -62,3 +65,35 @@ class SBL(object):
         for _ in range(10):
             self.estimate_model_parameters()
             self.update_z()
+
+    def get_results(
+        self, zero_th: float = None
+    ) -> Dict[Union[str, MultiVariableFunction], float]:
+        zero_idx = list()
+        if len(self.w_estimates) == 0:
+            w_est = np.zeros((self.linear_model.parameter_num, 1))
+        else:
+            w_est = self.w_estimates[-1]
+            if zero_th is not None:
+                zero_idx = [
+                    idx for idx, w in enumerate(w_est) if abs(w) <= zero_th
+                ]
+
+        if (
+            self.dict_fcns is None
+            or self.dict_fcns is isinstance(self.dict_fcns, list)
+            and len(self.dict_fcns) == 0
+        ):
+            self.dict_fcns = [
+                f"w_{i}" for i in range(self.linear_model.parameter_num)
+            ]
+
+        if len(zero_idx) > 0:
+            d_fcns = copy.deepcopy(self.dict_fcns)
+            new_w_est = list(w_est)
+            for idx in zero_idx:
+                del d_fcns[idx]
+                del new_w_est[idx]
+            return dict(zip(d_fcns, new_w_est))
+        else:
+            return dict(zip(self.dict_fcns, w_est))

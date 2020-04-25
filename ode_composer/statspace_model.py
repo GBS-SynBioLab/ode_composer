@@ -1,59 +1,75 @@
 from sympy import *
 from sympy.parsing.sympy_parser import parse_expr
-from dataclasses import dataclass
 from typing import List, Dict
-
-
-@dataclass
-class State:
-    rhs_arguments: List[Symbol]
-    # TODO restrict this better, check sympy documentation
-    rhs_fcn: object
-    rhs_expression: Mul
-    state_var: Mul
+from .util import MultiVariableFunction
 
 
 class StateSpaceModel(object):
     def __init__(self, states, parameters):
-        self.state_vector: List[State] = list()
+        self.state_vector: Dict[str, List[MultiVariableFunction]] = dict()
         self.parameters: Dict[str, float] = parameters
-        self.add_state_equation(states)
+        self.add_state_equation(states, parameters)
+
+    @classmethod
+    def from_string(cls, states: Dict[str, str], parameters: Dict[str, float]):
+        d = list()
+        for rhs in states.values():
+            d.append({rhs: 1})
+        states_dict = dict(zip(states.keys(), d))
+        return cls(states=states_dict, parameters=parameters)
 
     def __repr__(self):
-        sss = [f"{s.state_var}={s.rhs_expression}" for s in self.state_vector]
-        return str(sss)
+        # TODO replace str.join()
+        ss = ""
+        for state_name, rhs in self.state_vector.items():
+            ss += f"d{state_name}/dt = "
+            for rr in rhs:
+                ss += f"+{rr.constant}*{rr.symbolic_expression}"
+            ss += "\n"
+        return ss
 
-    def _build_righthand_side(self, state, rhs_fcn, parameters):
+    def _build_righthand_side(self, rhs_fcn, parameters, weight):
         if "^" in rhs_fcn:
             rhs_fcn = rhs_fcn.replace("^", "**")
         sym_expr = parse_expr(s=rhs_fcn, evaluate=False, local_dict=parameters)
         expr_variables = list(sym_expr.free_symbols)
-        sym_var = symbols(state)
         func = lambdify(args=expr_variables, expr=sym_expr, modules="numpy")
-        return State(
-            rhs_arguments=expr_variables,
-            rhs_fcn=func,
-            rhs_expression=sym_expr,
-            state_var=sym_var,
+        return MultiVariableFunction(
+            arguments=expr_variables,
+            fcn_pointer=func,
+            symbolic_expression=sym_expr,
+            constant=weight,
         )
 
-    def add_state_equation(self, states):
-        for state_var, rhs_fcn in states.items():
-            state = self._build_righthand_side(
-                state=state_var, rhs_fcn=rhs_fcn, parameters=self.parameters
-            )
-            self.state_vector.append(state)
+    def add_state_equation(self, states, parameters):
+        for state_var, rhs_fcns in states.items():
+            func_list = list()
+            for rhs_fcn, weight in rhs_fcns.items():
+                weight_numeric = parse_expr(
+                    s=str(weight), evaluate=True, local_dict=parameters
+                )
+                multi_var_fcn = self._build_righthand_side(
+                    rhs_fcn=rhs_fcn,
+                    parameters=self.parameters,
+                    weight=weight_numeric,
+                )
+                func_list.append(multi_var_fcn)
+            self.state_vector[state_var] = func_list
 
-    def get_rhs(self, t, y, states, parameters):
-        ret = [None] * len(y)
+    def get_rhs(self, t, y, states):
+        ret = list()
         if len(y) != len(states):
             raise ValueError(
-                f" #states:{len(states)} must be equal to {len(y)}"
+                f"#states:{len(states)} must be equal to {len(y)}"
             )
 
         state_map = dict(zip(states, y))
-        for idx, state in enumerate(self.state_vector):
-            s_str = list(map(str, state.rhs_arguments))
-            values = list(map(state_map.get, s_str))
-            ret[idx] = state.rhs_fcn(*values)
+        for state, func_dict in self.state_vector.items():
+            rhs_value = 0.0
+            for multi_var_fcn in func_dict:
+                rhs_value += (
+                    multi_var_fcn.constant
+                    * multi_var_fcn.evaluate_function(state_map)
+                )
+            ret.append(rhs_value)
         return ret

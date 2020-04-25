@@ -62,9 +62,9 @@ class LinearModel(object):
         self._lambda_param = new_lambda_param
 
     @property
-    def parameter_num(self):
+    def parameter_num(self) -> int:
         return self.dict_mtx.shape[1]
 
     @property
-    def data_num(self):
+    def data_num(self) -> int:
         return self.dict_mtx.shape[0]
