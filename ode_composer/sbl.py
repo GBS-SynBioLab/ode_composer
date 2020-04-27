@@ -39,7 +39,7 @@ class SBL(object):
                 print("opt problem")
                 # TODO deal w/ opt error
         except cp.error.SolverError:
-            pass
+            raise cp.error.SolverError
             # TODO deal w/ solver error
 
     def update_z(self):
@@ -91,7 +91,7 @@ class SBL(object):
         if len(zero_idx) > 0:
             d_fcns = copy.deepcopy(self.dict_fcns)
             new_w_est = list(w_est)
-            for idx in zero_idx:
+            for idx in sorted(zero_idx, reverse=True):
                 del d_fcns[idx]
                 del new_w_est[idx]
             return dict(zip(d_fcns, new_w_est))
