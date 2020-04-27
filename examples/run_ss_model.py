@@ -1,4 +1,4 @@
-from ode_composer.statspace_model import *
+from ode_composer.statespace_model import *
 from scipy.integrate import solve_ivp
 from ode_composer.dictionary_builder import *
 from ode_composer.sbl import *
