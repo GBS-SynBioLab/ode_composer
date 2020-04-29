@@ -3,7 +3,6 @@ sudo: false
 
 language: python
 python:
-  - "3.6"
   - "3.7"
 
 # Install the codecov pip dependency
@@ -14,7 +13,6 @@ install:
 
 # command to run tests
 script:
-  - "python setup.py test"
   - "pytest --cov-report=xml --cov=ode_composer tests/ "
 
 # Push the results back to codecov
