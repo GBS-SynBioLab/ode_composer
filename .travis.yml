@@ -9,10 +9,13 @@ python:
 # Install the codecov pip dependency
 install:
   - pip install codecov
+  - pip install pytest
+  - pip install pytest-cov
 
 # command to run tests
 script:
   - "python setup.py test"
+  - "pytest --cov-report=xml --cov=ode_composer tests/ "
 
 # Push the results back to codecov
 after_success:
