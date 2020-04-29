@@ -32,5 +32,4 @@ class DictionaryBuilder(object):
         ]
         self.regression_mtx = np.transpose(np.vstack(reg_mtx))
 
-    def get_regression_matrix(self) -> np.ndarray:
         return self.regression_mtx

@@ -7,12 +7,36 @@ from .dictionary_builder import MultiVariableFunction
 
 
 class SBL(object):
-    def __init__(self, linear_model: LinearModel, dict_fcns: List[str] = None):
-        self.linear_model = linear_model
+    def __init__(
+        self,
+        dict_mtx: np.ndarray,
+        data_vec: np.ndarray,
+        lambda_param: float,
+        dict_fcns: List[str] = None,
+    ):
+        self.linear_model = LinearModel(dict_mtx, data_vec=data_vec)
         self.z = np.ones((self.linear_model.parameter_num, 1))
         self.w_estimates: List[float] = list()
         self.z_estimates: List[float] = list()
         self.dict_fcns: List[str] = dict_fcns
+        self.lambda_param = lambda_param
+
+    @property
+    def lambda_param(self) -> float:
+        return self._lambda_param
+
+    @lambda_param.setter
+    def lambda_param(self, new_lambda_param: float):
+        if not isinstance(new_lambda_param, float):
+            raise TypeError(
+                "lambda param is %s, it must be float!" % new_lambda_param
+            )
+        if new_lambda_param < 0:
+            raise ValueError(
+                "lambda param must be non-negative, not %s!" % new_lambda_param
+            )
+
+        self._lambda_param = new_lambda_param
 
     def data_fit(self, w):
         return (1.0 / 2.0) * cp.pnorm(
@@ -23,9 +47,7 @@ class SBL(object):
         return np.sqrt(self.z).T * cp.atoms.elementwise.abs.abs(w)
 
     def objective_fn(self, w):
-        return self.data_fit(
-            w
-        ) + self.linear_model.lambda_param * self.regularizer(w)
+        return self.data_fit(w) + self.lambda_param * self.regularizer(w)
 
     def estimate_model_parameters(self):
         w_variable = cp.Variable(self.linear_model.parameter_num)
@@ -47,7 +69,7 @@ class SBL(object):
         Gamma = abs(w_actual) / np.sqrt(self.z)
         Gamma_diag = np.zeros((Gamma.shape[0], Gamma.shape[0]), float)
         np.fill_diagonal(Gamma_diag, Gamma)
-        Sigma_y = self.linear_model.lambda_param * np.eye(
+        Sigma_y = self.lambda_param * np.eye(
             self.linear_model.data_num
         ) + self.linear_model.dict_mtx @ Gamma_diag @ np.transpose(
             self.linear_model.dict_mtx

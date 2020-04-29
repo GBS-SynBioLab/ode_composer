@@ -2,15 +2,12 @@ import numpy as np
 
 
 class LinearModel(object):
-    def __init__(
-        self, dict_mtx: np.ndarray, data_vec: np.ndarray, lambda_param: float
-    ):
+    def __init__(self, dict_mtx: np.ndarray, data_vec: np.ndarray):
         self.dict_mtx = dict_mtx
         self.data_vec = data_vec
         param_num = dict_mtx.shape[1]
         self.w = np.empty((param_num, 1))
         self.w[:] = np.nan
-        self.lambda_param = lambda_param
 
     @property
     def dict_mtx(self) -> np.ndarray:
@@ -43,23 +40,6 @@ class LinearModel(object):
                 % (new_data_vec.shape[0], self.dict_mtx.shape[0])
             )
         self._data_vec = new_data_vec
-
-    @property
-    def lambda_param(self) -> float:
-        return self._lambda_param
-
-    @lambda_param.setter
-    def lambda_param(self, new_lambda_param: float):
-        if not isinstance(new_lambda_param, float):
-            raise TypeError(
-                "lambda param is %s, it must be float!" % new_lambda_param
-            )
-        if new_lambda_param < 0:
-            raise ValueError(
-                "lambda param must be non-negative, not %s!" % new_lambda_param
-            )
-
-        self._lambda_param = new_lambda_param
 
     @property
     def parameter_num(self) -> int:

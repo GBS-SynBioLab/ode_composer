@@ -24,7 +24,7 @@ class StateSpaceModel(object):
         for state_name, rhs in self.state_vector.items():
             ss += f"d{state_name}/dt = "
             for rr in rhs:
-                ss += f"+{rr.constant}*{rr.symbolic_expression}"
+                ss += f"+{float(rr.constant):.2f}*{rr.symbolic_expression}"
             ss += "\n"
         return ss
 
