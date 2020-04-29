@@ -1,0 +1,9 @@
+pytest
+numpy
+matplotlib
+scipy
+cvxpy
+sympy
+sklearn
+bokeh
+pandas
