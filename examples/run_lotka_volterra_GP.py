@@ -4,7 +4,10 @@ from ode_composer.dictionary_builder import DictionaryBuilder
 from ode_composer.sbl import SBL
 from ode_composer.measurements_generator import MeasurementsGenerator
 import matplotlib.pyplot as plt
-from ode_composer.signal_preprocessor import GPSignalPreprocessor
+from ode_composer.signal_preprocessor import (
+    GPSignalPreprocessor,
+    RHSEvalSignalPreprocessor,
+)
 
 
 # define Lotka-Volerra model
@@ -31,13 +34,15 @@ y_samples_2 = gproc_2.interpolate()
 gproc_2.calculate_time_derivative()
 dydt_2 = gproc_2.dydt
 
-rr = list()
-for yy in y.T:
-    rr.append(ss.get_rhs(0, yy, states))
 
+rhs_preprop = RHSEvalSignalPreprocessor(
+    t=t, y=y, rhs_function=ss.get_rhs, states=states
+)
+rhs_preprop.calculate_time_derivative()
+dydt_rhs = rhs_preprop.dydt
+dx1 = dydt_rhs[0, :]
+dx2 = dydt_rhs[1, :]
 
-dx1 = list(zip(*rr))[0]
-dx2 = list(zip(*rr))[1]
 plt.subplot(211)
 plt.plot(dx1, label="RHS diff")
 plt.plot(dydt_1, label="GP diff")
@@ -59,7 +64,8 @@ dict_builder = DictionaryBuilder(dict_fcns=d_f)
 data = {"x1": y_samples_1.T, "x2": y_samples_2.T}
 A = dict_builder.evaluate_dict(input_data=data)
 
-# step 2 define an SBL problem with the Lin reg model and solve it
+# step 2 define an SBL problem
+# with the Lin reg model and solve it
 lambda_param_1 = 0.5
 sbl_x1 = SBL(
     dict_mtx=A, data_vec=dydt_1, lambda_param=lambda_param_1, dict_fcns=d_f

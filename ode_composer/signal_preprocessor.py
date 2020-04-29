@@ -31,42 +31,48 @@ class SignalPreprocessor(object):
 
 
 class GPSignalPreprocessor(SignalPreprocessor):
-    def __init__(self, t, y):
+    def __init__(self, t, y, selected_kernel="RBF"):
         super().__init__(t, y)
         self.kernels = None
+        self.selected_kernel = selected_kernel
 
         # Create different kernels that will be explored
-        self.kernels = [
-            1.0 * RBF(length_scale=0.5, length_scale_bounds=(1e-1, 100.0)),
-            1.0 * RationalQuadratic(length_scale=1.0, alpha=0.2),
-            1.0
-            * ExpSineSquared(
-                length_scale=1.0,
-                periodicity=3,
-                length_scale_bounds=(0.1, 10.0),
-                periodicity_bounds=(1.0, 10.0),
-            ),
-            1.0
-            * Matern(
-                length_scale=1.0, length_scale_bounds=(1e-1, 100.0), nu=1.5
-            ),
-        ]
+        self.kernels = dict()
+
+        self.kernels["RBF"] = 1.0 * RBF(
+            length_scale=0.5, length_scale_bounds=(1e-1, 100.0)
+        )
+        self.kernels["RatQuad"] = 1.0 * RationalQuadratic(
+            length_scale=1.0, alpha=0.2
+        )
+        self.kernels["ExpSineSquared"] = 1.0 * ExpSineSquared(
+            length_scale=1.0,
+            periodicity=3,
+            length_scale_bounds=(0.1, 10.0),
+            periodicity_bounds=(1.0, 10.0),
+        )
+        self.kernels["Matern"] = 1.0 * Matern(
+            length_scale=1.0, length_scale_bounds=(1e-1, 100.0), nu=1.5
+        )
+
+        if selected_kernel not in self.kernels.keys():
+            raise KeyError(
+                f"Unknown kernel: {selected_kernel}, available kernels: {self.kernels.keys()}"
+            )
 
         # Generate the noisy kernels
-        self.noisy_kernels = []
-        for kernel in self.kernels:
-            self.noisy_kernels.append(
-                kernel
-                + WhiteKernel(noise_level=1, noise_level_bounds=(1e-3, 1e3))
+        self.noisy_kernels = dict()
+        for key, kernel in self.kernels.items():
+            self.noisy_kernels[key] = kernel + WhiteKernel(
+                noise_level=1, noise_level_bounds=(1e-3, 1e3)
             )
 
     def interpolate(self):
-        gp_samples = (
-            1  # Adjust the number of samples to be drawn from the fitted GP
-        )
+        # Adjust the number of samples to be drawn from the fitted GP
+        gp_samples = 1
 
-        KERNEL = 0
-        gp = GaussianProcessRegressor(kernel=self.noisy_kernels[KERNEL])
+        acutal_kernel = self.noisy_kernels[self.selected_kernel]
+        gp = GaussianProcessRegressor(kernel=acutal_kernel)
 
         X = self.t[:, np.newaxis]
         gp.fit(X, self.y)
@@ -82,12 +88,6 @@ class GPSignalPreprocessor(SignalPreprocessor):
         dTime = np.diff(self.t)
         dTime = np.append(dTime, [dTime[-1]])
         dA_mean = np.append(dA_mean, [dA_mean[-1]]) / dTime
-
-        # NUM_PLOT = self.y.shape[0]
-        # dMatrix = self.diff_matrix(NUM_PLOT)
-
-        # dK_A = dMatrix * self.K_A * np.transpose(dMatrix)
-        # dA_std = np.sqrt(np.diag(dK_A))
 
         self._dydt = dA_mean
 
@@ -115,5 +115,17 @@ class SplineSignalPreprocessor(SignalPreprocessor):
 
 
 class RHSEvalSignalPreprocessor(SignalPreprocessor):
-    def __init__(self, t, y, rhs_function):
+    def __init__(self, t, y, rhs_function, states):
         super().__init__(t, y)
+        self.rhs_function = rhs_function
+        self.states = states
+
+    def interpolate(self):
+        pass
+
+    def calculate_time_derivative(self):
+        rr = list()
+        for yy in self.y.T:
+            rr.append(self.rhs_function(0, yy, self.states))
+
+        self._dydt = np.array(rr).T

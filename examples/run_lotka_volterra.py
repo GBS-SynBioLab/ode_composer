@@ -1,7 +1,9 @@
 from ode_composer.statespace_model import *
 from scipy.integrate import solve_ivp
 from ode_composer.dictionary_builder import *
-from ode_composer.sbl import *
+from ode_composer.sbl import SBL
+from ode_composer.signal_preprocessor import RHSEvalSignalPreprocessor
+from ode_composer.measurements_generator import MeasurementsGenerator
 
 
 import numpy as np
@@ -16,13 +18,14 @@ print("Original Model:")
 print(ss)
 
 states = ["x1", "x2"]
-parameters = None
-t = [0, 100]
-y0 = [1.2, 1]
-sol = solve_ivp(fun=ss.get_rhs, t_span=t, y0=y0, args=(states,))
+t_span = [0, 15]
+x0 = {"x1": 1.2, "x2": 1.0}
+# simulate model
+gm = MeasurementsGenerator(ss=ss, time_span=t_span, initial_values=x0)
+t, y = gm.get_measurements(SNR_db=25)
 # report
-plt.plot(sol.t, sol.y[0, :], "b", label=r"$x_1(t)$")
-plt.plot(sol.t, sol.y[1, :], "g", label=r"$x_2(t)$")
+plt.plot(t, y[0, :], "b", label=r"$x_1(t)$")
+plt.plot(t, y[1, :], "g", label=r"$x_2(t)$")
 plt.legend(loc="best")
 plt.xlabel("time")
 plt.ylabel("population")
@@ -30,42 +33,35 @@ plt.grid()
 plt.show()
 
 
-d = sol.y
-rr = list()
-for y in zip(*d):
-    rr.append(ss.get_rhs(0, y, states))
-
-
-dx1 = list(zip(*rr))[0]
-dx2 = list(zip(*rr))[1]
-# plt.plot(dx1)
-# plt.plot(dx2)
-# plt.ylabel("derivative of the states")
-# plt.xlabel("time")
-# plt.show()
+rhs_preprop = RHSEvalSignalPreprocessor(
+    t=t, y=y, rhs_function=ss.get_rhs, states=states
+)
+rhs_preprop.calculate_time_derivative()
+dydt_rhs = rhs_preprop.dydt
+dx1 = dydt_rhs[0, :]
+dx2 = dydt_rhs[1, :]
 
 # step 1 define a dictionary
 d_f = ["x1", "x1*x2", "x2"]
 dict_builder = DictionaryBuilder(dict_fcns=d_f)
 # print(dict_builder.dict_fcns)
-data = {"x1": sol.y[0, :], "x2": sol.y[1, :]}
-dict_builder.evaluate_dict(input_data=data)
+data = {"x1": y[0, :], "x2": y[1, :]}
+A = dict_builder.evaluate_dict(input_data=data)
 
-A = dict_builder.get_regression_matrix()
 # print(f'regressor matrix {A}')
 
-# step 2 define a linear regression model
+# step 2 define an SBL problem with the Lin reg model and solve it
 lambda_param = 0.0
-linmodel_x1 = LinearModel(A, np.asarray(dx1, dtype=float), lambda_param)
-linmodel_x2 = LinearModel(A, np.asarray(dx2, dtype=float), lambda_param)
-
-# step 3 define an SBL problem with the Lin reg model and solve it
-sbl_x1 = SBL(linear_model=linmodel_x1, dict_fcns=d_f)
+sbl_x1 = SBL(
+    dict_mtx=A, data_vec=dx1, dict_fcns=d_f, lambda_param=lambda_param
+)
 sbl_x1.compute_model_structure()
 # print('results for dx1/dt')
 # print(sbl_x1.get_results())
 
-sbl_x2 = SBL(linear_model=linmodel_x2, dict_fcns=d_f)
+sbl_x2 = SBL(
+    dict_mtx=A, data_vec=dx2, dict_fcns=d_f, lambda_param=lambda_param
+)
 sbl_x2.compute_model_structure()
 # print('results for dx2/dt')
 # print(sbl_x2.get_results())
