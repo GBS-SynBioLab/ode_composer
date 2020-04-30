@@ -10,14 +10,20 @@ class MeasurementsGenerator(object):
         ss: StateSpaceModel,
         time_span: List[float],
         initial_values: Dict[str, float],
+        data_points: int = None,
     ):
         self.ss = ss
         states = initial_values.keys()
+        if data_points is None:
+            t_eval = None
+        else:
+            t_eval = np.linspace(time_span[0], time_span[1], data_points)
         sol = solve_ivp(
             fun=self.ss.get_rhs,
             t_span=time_span,
             y0=list(initial_values.values()),
             args=(states,),
+            t_eval=t_eval,
         )
 
         if sol.success is not True:

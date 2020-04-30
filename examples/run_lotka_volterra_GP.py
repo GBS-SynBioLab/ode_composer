@@ -19,8 +19,11 @@ print(ss)
 
 t_span = [0, 15]
 x0 = {"x1": 1.2, "x2": 1.0}
+data_points = 200
 # simulate model
-gm = MeasurementsGenerator(ss=ss, time_span=t_span, initial_values=x0)
+gm = MeasurementsGenerator(
+    ss=ss, time_span=t_span, initial_values=x0, data_points=data_points
+)
 t, y = gm.get_measurements(SNR_db=25)
 
 

@@ -2,7 +2,11 @@ from ode_composer.statespace_model import *
 from scipy.integrate import solve_ivp
 from ode_composer.dictionary_builder import *
 from ode_composer.sbl import *
-
+from ode_composer.measurements_generator import MeasurementsGenerator
+from ode_composer.signal_preprocessor import (
+    GPSignalPreprocessor,
+    RHSEvalSignalPreprocessor,
+)
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -13,17 +17,15 @@ parameters = {"m11": -0.5, "m12": 0.1, "m21": 0.6, "m22": -0.3}
 ss = StateSpaceModel(states=states, parameters=parameters)
 print(ss)
 
-# evaluate the RHS of the ODE
-ss.get_rhs(t=0, y=[0, 1], states=["x1", "x2"])
+t_span = [0, 100]
+x0 = {"x1": 1.2, "x2": 1.0}
+# simulate model
+gm = MeasurementsGenerator(ss=ss, time_span=t_span, initial_values=x0)
+t, y = gm.get_measurements()
 
-states = ["x1", "x2"]
-parameters = None
-t = np.linspace(0, 10, 101)
-y0 = [1.2, 1]
-sol = solve_ivp(ss.get_rhs, [0, 100], y0, args=(states,))
-# print(sol)
-plt.plot(sol.t, sol.y[0, :], "b", label="x_1(t)")
-plt.plot(sol.t, sol.y[1, :], "g", label="x_2(t)")
+
+plt.plot(t, y[0, :], "b", label=r"$x_1(t)$")
+plt.plot(t, y[1, :], "g", label=r"$x_2(t)$")
 plt.legend(loc="best")
 plt.xlabel("time")
 plt.ylabel("concentration")
@@ -31,16 +33,27 @@ plt.grid()
 plt.show()
 
 
-d = sol.y
-rr = list()
-for y in zip(*d):
-    rr.append(ss.get_rhs(0, y, states))
+rhs_preprop = RHSEvalSignalPreprocessor(
+    t=t, y=y, rhs_function=ss.get_rhs, states=states
+)
+rhs_preprop.calculate_time_derivative()
+dydt_rhs = rhs_preprop.dydt
+dx1 = dydt_rhs[0, :]
+dx2 = dydt_rhs[1, :]
+
+plt.plot(t, dydt_rhs.T)
+plt.ylabel("derivative of the states")
+plt.xlabel("time")
+plt.show()
 
 
-dx1 = list(zip(*rr))[0]
-dx2 = list(zip(*rr))[1]
+gproc = GPSignalPreprocessor(t=t, y=y[0, :])
+gproc.interpolate()
+gproc.calculate_time_derivative()
+dydt_2 = gproc.dydt
+
+plt.plot(dydt_2)
 plt.plot(dx1)
-plt.plot(dx2)
 plt.ylabel("derivative of the states")
 plt.xlabel("time")
 plt.show()
@@ -51,20 +64,15 @@ plt.show()
 d_f = ["x1", "x1*x2", "x2", "sin(x2)^3"]
 dict_builder = DictionaryBuilder(dict_fcns=d_f)
 print(dict_builder.dict_fcns)
-data = {"x1": sol.y[0, :], "x2": sol.y[1, :]}
-dict_builder.evaluate_dict(input_data=data)
+data = {"x1": y[0, :], "x2": y[1, :]}
+A = dict_builder.evaluate_dict(input_data=data)
 
-A = dict_builder.get_regression_matrix()
-# print(f'regressor matrix {A}')
-
-# step 2 define a linear regression model
-lambda_param = 0.4
-linmodel = LinearModel(A, np.asarray(dx1, dtype=float), lambda_param)
-
-# step 3 define an SBL problem with the Lin reg model and solve it
-sbl = SBL(linear_model=linmodel)
+# step 2 define an SBL problem with the Lin reg model and solve it
+lambda_param = 0.5
+sbl = SBL(dict_mtx=A, data_vec=dx1, lambda_param=lambda_param)
 sbl.compute_model_structure()
 
+print(f"weights {sbl.w_estimates[-1]}")
 # step 4 reporting
 # print(sbl.w_estimates)
 plt.plot(sbl.w_estimates)
@@ -77,6 +85,3 @@ plt.ylabel("gamma est")
 plt.xlabel("iterations")
 plt.yscale("log")
 plt.show()
-
-
-print(f"weights {sbl.w_estimates[-1]}")
