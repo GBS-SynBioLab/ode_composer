@@ -4,6 +4,7 @@ import numpy as np
 from typing import List, Dict, Union
 from .linear_model import LinearModel
 from .dictionary_builder import MultiVariableFunction
+import warnings
 
 
 class SBL(object):
@@ -55,18 +56,25 @@ class SBL(object):
 
         try:
             problem.solve()
-            if problem.status == "optimal":
+            if problem.status == cp.OPTIMAL:
                 self.w_estimates.append(w_variable.value)
             else:
-                print("opt problem")
-                # TODO deal w/ opt error
+                if problem.status == cp.OPTIMAL_INACCURATE:
+                    warnings.warn(
+                        f"Problem with optimization accuracy: {problem.status}"
+                    )
+                    self.w_estimates.append(w_variable.value)
+                else:
+                    print(
+                        f"Problem with the solution from cvxpy: {problem.status}"
+                    )
         except cp.error.SolverError:
             raise cp.error.SolverError
             # TODO deal w/ solver error
 
     def update_z(self):
         w_actual = self.w_estimates[-1]
-        Gamma = abs(w_actual) / np.sqrt(self.z)
+        Gamma = np.divide(abs(w_actual), np.sqrt(self.z.T)).T
         Gamma_diag = np.zeros((Gamma.shape[0], Gamma.shape[0]), float)
         np.fill_diagonal(Gamma_diag, Gamma)
         Sigma_y = self.lambda_param * np.eye(
