@@ -1,17 +1,36 @@
 from sympy import *
-from sympy.parsing.sympy_parser import parse_expr
 from typing import List, Dict
 from .util import MultiVariableFunction
+from sympy.parsing.sympy_parser import parse_expr
 
 
 class StateSpaceModel(object):
-    def __init__(self, states, parameters):
+    def __init__(
+        self, states: Dict[str, Dict[str, str]], parameters: Dict[str, float]
+    ):
+        """
+
+        Args:
+            states:
+            parameters:
+        """
         self.state_vector: Dict[str, List[MultiVariableFunction]] = dict()
+        # TODO add handling for parameter dict merging
         self.parameters: Dict[str, float] = parameters
         self.add_state_equation(states, parameters)
 
     @classmethod
     def from_string(cls, states: Dict[str, str], parameters: Dict[str, float]):
+        """
+
+        Args:
+            states:
+            parameters:
+
+        Returns:
+            an instance of StateSpaceModel
+
+        """
         d = list()
         for rhs in states.values():
             d.append({rhs: 1})
@@ -28,32 +47,22 @@ class StateSpaceModel(object):
             ss += "\n"
         return ss
 
-    def _build_righthand_side(self, rhs_fcn, parameters, weight):
-        if "^" in rhs_fcn:
-            rhs_fcn = rhs_fcn.replace("^", "**")
-        sym_expr = parse_expr(s=rhs_fcn, evaluate=False, local_dict=parameters)
-        expr_variables = list(sym_expr.free_symbols)
-        func = lambdify(args=expr_variables, expr=sym_expr, modules="numpy")
-        return MultiVariableFunction(
-            arguments=expr_variables,
-            fcn_pointer=func,
-            symbolic_expression=sym_expr,
-            constant=weight,
-        )
-
-    def add_state_equation(self, states, parameters):
+    def add_state_equation(
+        self, states: Dict[str, Dict[str, str]], parameters: Dict[str, float]
+    ):
         for state_var, rhs_fcns in states.items():
             func_list = list()
             for rhs_fcn, weight in rhs_fcns.items():
                 weight_numeric = parse_expr(
                     s=str(weight), evaluate=True, local_dict=parameters
                 )
-                multi_var_fcn = self._build_righthand_side(
+                multi_var_fcn = MultiVariableFunction.create_function(
                     rhs_fcn=rhs_fcn,
                     parameters=self.parameters,
                     weight=weight_numeric,
                 )
                 func_list.append(multi_var_fcn)
+            # TODO add check for existing keys!
             self.state_vector[state_var] = func_list
 
     def get_rhs(self, t, y, states):
@@ -62,7 +71,7 @@ class StateSpaceModel(object):
             raise ValueError(
                 f"#states:{len(states)} must be equal to {len(y)}"
             )
-
+        # TODO Check that states are valid, but it must be fast!
         state_map = dict(zip(states, y))
         for state, func_dict in self.state_vector.items():
             rhs_value = 0.0

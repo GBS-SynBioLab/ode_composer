@@ -5,6 +5,7 @@ import numpy as np
 
 
 def test_dictionary_builder():
+    """test that all dictionary functions are processed"""
     d_f = ["x1", "x1*x2", "x2"]
     dict_builder = DictionaryBuilder(dict_fcns=d_f)
     assert len(d_f) == len(dict_builder.dict_fcns)

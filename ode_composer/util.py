@@ -2,6 +2,7 @@ from sympy import *
 from typing import List, Dict
 from dataclasses import dataclass
 import numpy as np
+from sympy.parsing.sympy_parser import parse_expr
 
 
 @dataclass
@@ -26,3 +27,19 @@ class MultiVariableFunction:
                 )
             data.append(np.array(measurement_data.get(key)))
         return self.fcn_pointer(*data)
+
+    @staticmethod
+    def create_function(
+        rhs_fcn: str, parameters: Dict[str, float], weight: float
+    ):
+        if "^" in rhs_fcn:
+            rhs_fcn = rhs_fcn.replace("^", "**")
+        sym_expr = parse_expr(s=rhs_fcn, evaluate=False, local_dict=parameters)
+        expr_variables = list(sym_expr.free_symbols)
+        func = lambdify(args=expr_variables, expr=sym_expr, modules="numpy")
+        return MultiVariableFunction(
+            arguments=expr_variables,
+            fcn_pointer=func,
+            symbolic_expression=sym_expr,
+            constant=weight,
+        )

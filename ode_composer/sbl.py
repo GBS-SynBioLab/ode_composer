@@ -57,6 +57,7 @@ class SBL(object):
         try:
             problem.solve()
             if problem.status == cp.OPTIMAL:
+                # TODO update the underlying linear model with the new parameter
                 self.w_estimates.append(w_variable.value)
             else:
                 if problem.status == cp.OPTIMAL_INACCURATE:
@@ -73,6 +74,7 @@ class SBL(object):
             # TODO deal w/ solver error
 
     def update_z(self):
+        # TODO store the actual w estimate in the linear model
         w_actual = self.w_estimates[-1]
         Gamma = np.divide(abs(w_actual), np.sqrt(self.z.T)).T
         Gamma_diag = np.zeros((Gamma.shape[0], Gamma.shape[0]), float)
@@ -92,7 +94,8 @@ class SBL(object):
 
     def compute_model_structure(self):
         # TODO transform this into a generator
-        for _ in range(10):
+        total_iterations = 10
+        for idx in range(total_iterations):
             self.estimate_model_parameters()
             self.update_z()
 
