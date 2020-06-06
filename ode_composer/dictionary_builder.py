@@ -1,4 +1,6 @@
 import numpy as np
+from sympy import *
+from sympy.parsing.sympy_parser import parse_expr
 from typing import List, Dict
 from .util import MultiVariableFunction
 
@@ -10,9 +12,16 @@ class DictionaryBuilder(object):
         for d_f in dict_fcns:
             self.add_dict_fcn(d_f)
 
-    def add_dict_fcn(self, d_f: str):
-        dict_fcn = MultiVariableFunction.create_function(
-            rhs_fcn=d_f, parameters={}, weight=1.0
+    def add_dict_fcn(self, d_f):
+        if "^" in d_f:
+            d_f = d_f.replace("^", "**")
+        sym_expr = parse_expr(s=d_f, evaluate=False)
+        expr_variables = list(sym_expr.free_symbols)
+        func = lambdify(args=expr_variables, expr=sym_expr, modules="numpy")
+        dict_fcn = MultiVariableFunction(
+            arguments=expr_variables,
+            fcn_pointer=func,
+            symbolic_expression=sym_expr,
         )
         self.dict_fcns.append(dict_fcn)
 
