@@ -58,6 +58,9 @@ class GPSignalPreprocessor(SignalPreprocessor):
         self.kernels["RBF*ExpSineSquared"] = 1.0 * RBF(length_scale=1.0) * \
                                                 ExpSineSquared(length_scale=1, periodicity=3)
 
+        self.kernels["RBF+ExpSineSquared"] = 1.0 * RBF(length_scale=1.0) + \
+                                             ExpSineSquared(length_scale=1, periodicity=3)
+
         self.kernels["RatQuad*ExpSineSquared"] = 1.0 * RationalQuadratic(length_scale=1.0, alpha=0.2) * \
                                              ExpSineSquared(length_scale=1, periodicity=3)
 
@@ -73,7 +76,7 @@ class GPSignalPreprocessor(SignalPreprocessor):
         self.noisy_kernels = dict()
         for key, kernel in self.kernels.items():
             self.noisy_kernels[key] = kernel + WhiteKernel(
-                noise_level=1, noise_level_bounds=(1e-5, 1e5)
+                noise_level=1, noise_level_bounds=(1e-7, 1e7)
             )
 
     def interpolate(self, return_extended_time=False):

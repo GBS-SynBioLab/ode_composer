@@ -13,27 +13,27 @@ from ode_composer.signal_preprocessor import (
 
 
 # define Lotka-Volerra model
-states = {"x": "sin(y)", "y": "x + sin(x)", "z": "b + sin(x)"}
+states = {"x": "1.5*sin(y)", "y": "0.1*c", "z": "b + 5*sin(x)"}
 parameters = {"a": 0.2, "b": 0.5, "c": 5.7}
 ss = StateSpaceModel.from_string(states=states, parameters=parameters)
 print("Original Model:")
 print(ss)
 
-t_span = [0, 100]
-y0 = {"x": 0.0, "y": 0.0, "z": 0.000001}
-data_points = 350
-gp_interpolation_factor = 3
+t_span = [0, 20]
+y0 = {"x": 0.01, "y": 0.1, "z": 0.000001}
+data_points = 250
+gp_interpolation_factor = 1
 # simulate model
 gm = MeasurementsGenerator(
     ss=ss, time_span=t_span, initial_values=y0, data_points=data_points
 )
-t, y = gm.get_measurements(SNR_db=50)
+t, y = gm.get_measurements(SNR_db=25)
 
 # Fit a GP, find the derivative and std of each
 gproc = GPSignalPreprocessor(
     t=t,
     y=y[0, :],
-    selected_kernel="Matern",
+    selected_kernel="Matern*ExpSineSquared",
     interpolation_factor=gp_interpolation_factor
 )
 x_samples, t_gp = gproc.interpolate(return_extended_time=True)
@@ -54,7 +54,7 @@ dydt_std = gproc_2.A_std
 
 gproc_3 = GPSignalPreprocessor(t=t,
                                y=y[2, :],
-                               selected_kernel="Matern",
+                               selected_kernel="RatQuad*ExpSineSquared",
                                interpolation_factor=gp_interpolation_factor,
 )
 z_samples, _ = gproc_3.interpolate()
@@ -105,7 +105,7 @@ plt.scatter(t, dx2, label="RHS diff")
 plt.plot(t, dy_spline, c='r', label="Spline diff")
 plt.plot(t_gp, dydt, c='orange', label="GP diff")
 plt.fill_between(t_gp, dydt - 2*dydt_std, dydt + 2*dydt_std, alpha=0.2, color='k')
-plt.ylabel("derivative of the z")
+plt.ylabel("derivative of the y")
 plt.xlabel("time")
 plt.legend(loc="best")
 plt.subplot(313)
@@ -119,7 +119,8 @@ plt.legend(loc="best")
 plt.show()
 
 # step 1 define a dictionary
-d_f = ["x", "y", "z", "z*x", "x/(x+1e-12)", "sin(x)", "sin(y)"]
+d_f = ["1", "x", "y", "z", "z*x", "sin(x)", "sin(y)", "x/z", "y/z", "z/x", "y/x", "x**2", "y**2", "z**2",
+       "1/(x+sin(x))", "1/tan(y)", "sin(2*x)"]
 dict_builder = DictionaryBuilder(dict_fcns=d_f)
 # associate variables with data
 data = {"x": x_samples.T, "y": y_samples.T, "z": z_samples.T}
@@ -145,7 +146,7 @@ sbl_x2.compute_model_structure()
 lambda_param_3 = (np.mean(dzdt_std)) + 0.1
 print(lambda_param_3)
 sbl_x3 = SBL(
-    dict_mtx=A, data_vec=dzdt, lambda_param=lambda_param, dict_fcns=d_f
+    dict_mtx=A, data_vec=dzdt, lambda_param=lambda_param_3, dict_fcns=d_f
 )
 sbl_x3.compute_model_structure()
 
@@ -165,7 +166,7 @@ ode_model = StateSpaceModel(
 print("Estimated ODE model:")
 print(ode_model)
 states = ["x", "y", "z"]
-y0 = [0.0, 0.0, 0.00001]
+y0 = [0.01, 0.1, 0.00001]
 sol_ode = solve_ivp(fun=ode_model.get_rhs, t_span=t_span, t_eval=t_gp, y0=y0, args=(states,))
 
 plt.figure(2)

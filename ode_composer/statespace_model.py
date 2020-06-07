@@ -22,10 +22,12 @@ class StateSpaceModel(object):
         # TODO replace str.join()
         ss = ""
         for state_name, rhs in self.state_vector.items():
-            ss += f"d{state_name}/dt = "
+            eq_str = ""
+            diff_str = f"d{state_name}/dt = "
             for rr in rhs:
-                ss += f"+{float(rr.constant):.2f}*{rr.symbolic_expression}"
-            ss += "\n"
+                eq_str += f"+{float(rr.constant):.2f}*{rr.symbolic_expression}"
+            eq_str = str(simplify(eq_str))
+            ss += diff_str + eq_str + "\n"
         return ss
 
     def _build_righthand_side(self, rhs_fcn, parameters, weight):

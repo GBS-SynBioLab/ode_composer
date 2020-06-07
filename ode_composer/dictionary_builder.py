@@ -30,6 +30,15 @@ class DictionaryBuilder(object):
             d_fcn.evaluate_function(measurement_data=input_data)
             for d_fcn in self.dict_fcns
         ]
+
+        #Ensure constants are evaluated not as a single digit, but as a vector of the same length as the input data
+        for i in range(len(reg_mtx)):
+            if not isinstance(reg_mtx[i], np.ndarray):
+                dict_val = input_data.values()
+                value_iterator = iter(dict_val)
+                first_value = next(value_iterator)
+                reg_mtx[i] = reg_mtx[i]*np.ones_like(first_value)
+
         self.regression_mtx = np.transpose(np.vstack(reg_mtx))
 
         return self.regression_mtx
