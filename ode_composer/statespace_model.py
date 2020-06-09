@@ -26,7 +26,9 @@ class StateSpaceModel(object):
             diff_str = f"d{state_name}/dt = "
             for rr in rhs:
                 eq_str += f"+{float(rr.constant):.2f}*{rr.symbolic_expression}"
-            eq_str = str(simplify(eq_str))
+
+            if eq_str: #Check for text in the string, if no text is found parsing is not necessary to simplify
+                eq_str = str(simplify(eq_str))
             ss += diff_str + eq_str + "\n"
         return ss
 

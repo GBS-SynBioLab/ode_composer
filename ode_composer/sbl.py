@@ -15,7 +15,11 @@ class SBL(object):
         lambda_param: float,
         dict_fcns: List[str] = None,
     ):
-        self.linear_model = LinearModel(dict_mtx, data_vec=data_vec)
+        #L2-normalization D.Wipf et. al - Iterative reweighted l1 and l2 methods for finding sparse solutions
+        self.norm_vect = np.linalg.norm(dict_mtx, axis=0)
+        self.norm_dict = dict_mtx/self.norm_vect
+
+        self.linear_model = LinearModel(self.norm_dict, data_vec=data_vec)
         self.z = np.ones((self.linear_model.parameter_num, 1))
         self.w_estimates: List[float] = list()
         self.z_estimates: List[float] = list()
@@ -92,7 +96,8 @@ class SBL(object):
 
     def compute_model_structure(self):
         # TODO transform this into a generator
-        for _ in range(100):
+        # TODO: stop loop upon convergence
+        for _ in range(500):
             self.estimate_model_parameters()
             self.update_z()
 
@@ -103,7 +108,8 @@ class SBL(object):
         if len(self.w_estimates) == 0:
             w_est = np.zeros((self.linear_model.parameter_num, 1))
         else:
-            w_est = self.w_estimates[-1]
+            # Recover back parameters after dict normalization
+            w_est = self.w_estimates[-1]/self.norm_vect
             if zero_th is not None:
                 zero_idx = [
                     idx for idx, w in enumerate(w_est) if abs(w) <= zero_th

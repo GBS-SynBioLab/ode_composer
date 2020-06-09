@@ -25,15 +25,13 @@ data_points = 300
 gm = MeasurementsGenerator(
     ss=ss, time_span=t_span, initial_values=x0, data_points=data_points
 )
-t, y = gm.get_measurements(SNR_db=8)
+t, y = gm.get_measurements(SNR_db=10)
 
 gproc = GPSignalPreprocessor(t=t, y=y[0, :], selected_kernel="Matern*ExpSineSquared", interpolation_factor=2)
 y_samples_1, t_gp = gproc.interpolate(return_extended_time=True)
 gproc.calculate_time_derivative()
 dydt_1 = gproc.dydt
 dydt_1_std = gproc.A_std
-
-#TODO: fix t_gp, if not defined just use time (Current solution: GP interpolation will now return time as well)
 
 gproc_2 = GPSignalPreprocessor(t=t, y=y[1, :], selected_kernel="Matern*ExpSineSquared", interpolation_factor=2)
 y_samples_2, _ = gproc_2.interpolate()
@@ -72,7 +70,7 @@ plt.legend(loc="best")
 plt.show()
 
 # step 1 define a dictionary
-d_f = ["x1", "x1*x2", "x2", "x2**2", "x1**2"]
+d_f = ["x1", "x1*x2", "x2", "x2**2", "x1**2", "x1/x2", "x1**2/x2", "x2**2/x1", "1"]
 dict_builder = DictionaryBuilder(dict_fcns=d_f)
 # associate variables with data
 data = {"x1": y_samples_1.T, "x2": y_samples_2.T}
