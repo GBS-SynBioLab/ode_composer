@@ -35,6 +35,29 @@ class GPSignalPreprocessor(SignalPreprocessor):
         self.selected_kernel = selected_kernel
         self.interpolation_factor = interpolation_factor
 
+        #TODO: fix this to comply with python standards
+        self.t_ext = np.append(t, [t[-1] + t[-1] - t[-2]])
+        self._A_mean_ext = None
+        self._A_std_ext = None
+        self.A_mean = None
+        self.A_std = None
+
+        @property
+        def A_mean_ext(self):
+            return self._A_mean_ext
+
+        @A_mean_ext.setter
+        def A_mean_ext(self, new_value):
+            self.A_mean = new_value[0:-1]
+
+        @property
+        def A_std_ext(self):
+            return self._A_std_ext
+
+        @A_std_ext.setter
+        def A_std_ext(self, new_value):
+            self.A_std = new_value[0:-1]
+
         # Create different kernels that will be explored
         self.kernels = dict()
 
@@ -58,7 +81,7 @@ class GPSignalPreprocessor(SignalPreprocessor):
         self.kernels["RBF*ExpSineSquared"] = 1.0 * RBF(length_scale=1.0) * \
                                                 ExpSineSquared(length_scale=1, periodicity=3)
 
-        self.kernels["RBF+ExpSineSquared"] = 1.0 * RBF(length_scale=1.0) + \
+        self.kernels["RatQuad+ExpSineSquared"] = 1.0 * RationalQuadratic(length_scale=1.0) + \
                                              ExpSineSquared(length_scale=1, periodicity=3)
 
         self.kernels["RatQuad*ExpSineSquared"] = 1.0 * RationalQuadratic(length_scale=1.0, alpha=0.2) * \
@@ -79,40 +102,52 @@ class GPSignalPreprocessor(SignalPreprocessor):
                 noise_level=1, noise_level_bounds=(1e-7, 1e7)
             )
 
-    def interpolate(self, return_extended_time=False):
+    def interpolate(self, return_extended_time=False, noisy_obs=True):
         # Adjust the number of samples to be drawn from the fitted GP
         gp_samples = 1
 
-        actual_kernel = self.noisy_kernels[self.selected_kernel]
+        if noisy_obs:
+            actual_kernel = self.noisy_kernels[self.selected_kernel]
+        else:
+            actual_kernel = self.kernels[self.selected_kernel]
+
         gp = GaussianProcessRegressor(kernel=actual_kernel)
 
         X = self.t[:, np.newaxis]
         gp.fit(X, self.y)
 
+        #TODO: clean up code
+        X_ext = self.t_ext[:, np.newaxis]
+
         if self.interpolation_factor is None:
-            self.A_mean, self.A_std = gp.predict(X, return_std=True)
-            _, self.K_A = gp.predict(X, return_cov=True)
+            self.A_mean_ext, self.A_std_ext = gp.predict(X_ext, return_std=True)
+            _, self.K_A_ext = gp.predict(X_ext, return_cov=True)
         else:
-            X_extended = np.linspace(self.t[0], self.t[-1], self.interpolation_factor * len(self.t))
+            X_extended = np.linspace(self.t_ext[0], self.t_ext[-1], self.interpolation_factor * len(self.t_ext))
             X_extended = X_extended[:,np.newaxis]
-            self.A_mean, self.A_std = gp.predict(X_extended, return_std=True)
-            _, self.K_A = gp.predict(X_extended, return_cov=True)
+            self.A_mean_ext, self.A_std_ext = gp.predict(X_extended, return_std=True)
+            _, self.K_A_ext = gp.predict(X_extended, return_cov=True)
+
+        self.A_std = self.A_std_ext[0:-1]
+        self.A_mean = self.A_mean_ext[0:-1]
+
 
         if return_extended_time and self.interpolation_factor is not None:
-            X_extended = np.linspace(self.t[0], self.t[-1], self.interpolation_factor * len(self.t))
-            return self.A_mean, X_extended
+            X_extended = np.linspace(self.t_ext[0], self.t_ext[-1], self.interpolation_factor * len(self.t_ext))
+            return self.A_mean_ext[0:-1], X_extended[0:-1]
         else:
-            return self.A_mean, self.t
+            return self.A_mean_ext[0:-1], self.t
 
     def calculate_time_derivative(self):
-        dA_mean = np.diff(self.A_mean)
+        dA_mean = np.gradient(self.A_mean)
         if self.interpolation_factor is None:
-            dTime = np.diff(self.t)
+            dTime = np.gradient(self.t)
         else:
+
             t_extended = np.linspace(self.t[0], self.t[-1], self.interpolation_factor * len(self.t))
-            dTime = np.diff(t_extended)
-        dTime = np.append(dTime, [dTime[-1]])
-        dA_mean = np.append(dA_mean, [dA_mean[-1]]) / dTime
+            dTime = np.gradient(t_extended)
+
+        dA_mean = dA_mean / dTime
 
         self._dydt = dA_mean
 

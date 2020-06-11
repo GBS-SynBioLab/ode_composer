@@ -17,6 +17,7 @@ class SBL(object):
     ):
         #L2-normalization D.Wipf et. al - Iterative reweighted l1 and l2 methods for finding sparse solutions
         self.norm_vect = np.linalg.norm(dict_mtx, axis=0)
+        #self.norm_vect = 1
         self.norm_dict = dict_mtx/self.norm_vect
 
         self.linear_model = LinearModel(self.norm_dict, data_vec=data_vec)
@@ -59,7 +60,7 @@ class SBL(object):
         problem = cp.Problem(cp.Minimize(self.objective_fn(w=w_variable)))
 
         try:
-            problem.solve()
+            problem.solve(solver=cp.SCS)
             if problem.status == cp.OPTIMAL:
                 self.w_estimates.append(w_variable.value)
             else:
@@ -97,7 +98,7 @@ class SBL(object):
     def compute_model_structure(self):
         # TODO transform this into a generator
         # TODO: stop loop upon convergence
-        for _ in range(500):
+        for _ in range(50):
             self.estimate_model_parameters()
             self.update_z()
 

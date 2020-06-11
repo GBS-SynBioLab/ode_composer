@@ -25,15 +25,15 @@ data_points = 300
 gm = MeasurementsGenerator(
     ss=ss, time_span=t_span, initial_values=x0, data_points=data_points
 )
-t, y = gm.get_measurements(SNR_db=10)
+t, y = gm.get_measurements(SNR_db=5)
 
-gproc = GPSignalPreprocessor(t=t, y=y[0, :], selected_kernel="Matern*ExpSineSquared", interpolation_factor=2)
+gproc = GPSignalPreprocessor(t=t, y=y[0, :], selected_kernel="Matern")
 y_samples_1, t_gp = gproc.interpolate(return_extended_time=True)
 gproc.calculate_time_derivative()
 dydt_1 = gproc.dydt
 dydt_1_std = gproc.A_std
 
-gproc_2 = GPSignalPreprocessor(t=t, y=y[1, :], selected_kernel="Matern*ExpSineSquared", interpolation_factor=2)
+gproc_2 = GPSignalPreprocessor(t=t, y=y[1, :], selected_kernel="Matern")
 y_samples_2, _ = gproc_2.interpolate()
 gproc_2.calculate_time_derivative()
 dydt_2 = gproc_2.dydt
@@ -136,3 +136,15 @@ plt.plot(sol_ode.y[0, :], sol_ode.y[1, :])
 plt.xlabel(r"$\hat{x}_1(t)$")
 plt.ylabel(r"$\hat{x}_2(t)$")
 plt.show()
+
+plt.figure()
+plt.scatter(t, y[0,:], label=r"x_1")
+plt.scatter(t, y[1,:], label=r"x_2")
+plt.plot(sol_ode.t, sol_ode.y[0,:], '-', label=r"$\hat{x}_{1}$")
+plt.plot(sol_ode.t, sol_ode.y[1,:], '-', label=r"$\hat{x}_{2}$")
+plt.legend()
+plt.title("Estimation vs Original observation")
+plt.xlabel('Time')
+plt.ylabel('Population')
+plt.show()
+

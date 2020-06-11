@@ -11,23 +11,26 @@ from ode_composer.signal_preprocessor import (
     SplineSignalPreprocessor,
 )
 
-
 # define the model
-states = {"x": "-y-z", "y": "x+a*y", "z": "b+x*z-z*c"}
-parameters = {"a": 0.2, "b": 0.2, "c": 5.7}
+states = {"x": "sigma*(y-x)", "y": "x*(rho-z)-y", "z": "x*y-beta*z"}
+parameters = {"sigma": 10, "beta": 8 / 3, "rho": 28}
 ss = StateSpaceModel.from_string(states=states, parameters=parameters)
 print("Original Model:")
 print(ss)
 
-t_span = [0, 50]
-y0 = {"x": 1.0, "y": 10.0, "z": 10.0}
+# Adjust model and simulation parameters
+t_span = [0, 5]
+y0 = {"x": 10.0, "y": 10.0, "z": 10.0}
 data_points = 500
-gp_interpolation_factor = 1
+gp_interpolation_factor = None
+noisy_obs = True
+SNR = 30
+
 # simulate model
 gm = MeasurementsGenerator(
     ss=ss, time_span=t_span, initial_values=y0, data_points=data_points
 )
-t, y = gm.get_measurements(SNR_db=20)
+t, y = gm.get_measurements(SNR_db=SNR)
 y_normfactor = np.mean(np.linalg.norm(y, axis=1))
 # Fit a GP, find the derivative and std of each
 gproc = GPSignalPreprocessor(
@@ -36,7 +39,7 @@ gproc = GPSignalPreprocessor(
     selected_kernel="RBF",
     interpolation_factor=gp_interpolation_factor
 )
-x_samples, t_gp = gproc.interpolate(return_extended_time=True, noisy_obs=False)
+x_samples, t_gp = gproc.interpolate(return_extended_time=True, noisy_obs=noisy_obs)
 gproc.calculate_time_derivative()
 dxdt = gproc.dydt
 dxdt_std = gproc.A_std
@@ -47,7 +50,7 @@ gproc_2 = GPSignalPreprocessor(
     selected_kernel="RatQuad",
     interpolation_factor=gp_interpolation_factor,
 )
-y_samples, _ = gproc_2.interpolate(noisy_obs=False)
+y_samples, _ = gproc_2.interpolate(noisy_obs=noisy_obs)
 gproc_2.calculate_time_derivative()
 dydt = gproc_2.dydt
 dydt_std = gproc_2.A_std
@@ -58,7 +61,7 @@ gproc_3 = GPSignalPreprocessor(
     selected_kernel="RatQuad",
     interpolation_factor=gp_interpolation_factor,
 )
-z_samples, _ = gproc_3.interpolate(noisy_obs=False)
+z_samples, _ = gproc_3.interpolate(noisy_obs=noisy_obs)
 gproc_3.calculate_time_derivative()
 dzdt = gproc_3.dydt
 dzdt_std = gproc_3.A_std
@@ -94,33 +97,6 @@ dx3 = dydt_rhs[2, :]
 
 plt.figure(1)
 plt.subplot(311)
-plt.plot(t, y[0,:], label="Original")
-plt.plot(t, x_spline, c='r', label="Spline")
-plt.plot(t_gp, x_samples, c='orange', label="GP")
-plt.fill_between(t_gp, x_samples - 2*dxdt_std, x_samples + 2*dxdt_std, alpha=0.2, color='k')
-plt.ylabel("x")
-plt.xlabel("time")
-plt.legend(loc="best")
-plt.subplot(312)
-plt.plot(t, y[1,:], label="RHS")
-plt.plot(t, y_spline, c='r', label="Spline")
-plt.plot(t_gp, y_samples, c='orange', label="GP")
-plt.fill_between(t_gp, y_samples - 2*dydt_std, y_samples + 2*dydt_std, alpha=0.2, color='k')
-plt.ylabel("y")
-plt.xlabel("time")
-plt.legend(loc="best")
-plt.subplot(313)
-plt.plot(t, y[2,:], label="RHS diff")
-plt.plot(t, z_spline, c='r', label="spline diff")
-plt.plot(t_gp, z_samples, c='orange', label="GP diff")
-plt.fill_between(t_gp, z_samples - 2*dzdt_std, z_samples + 2*dzdt_std, alpha=0.2, color='k')
-plt.ylabel("derivative of z")
-plt.xlabel("time")
-plt.legend(loc="best")
-plt.show()
-
-plt.figure(1)
-plt.subplot(311)
 plt.plot(t, dx1, label="RHS diff")
 plt.plot(t, dx_spline, c='r', label="Spline diff")
 plt.plot(t_gp, dxdt, c='orange', label="GP diff")
@@ -147,7 +123,7 @@ plt.legend(loc="best")
 plt.show()
 
 # step 1 define a dictionary
-d_f = ["1", "x", "y", "z", "x*z", "y*x", "z*y"]
+d_f = ["x", "y", "z", "x*z", "y*x", "z*y"]
 dict_builder = DictionaryBuilder(dict_fcns=d_f)
 # associate variables with data
 data = {"x": x_samples.T, "y": y_samples.T, "z": z_samples.T}
@@ -156,21 +132,21 @@ A = dict_builder.evaluate_dict(input_data=data)
 # step 2 define an SBL problem
 # with the Lin reg model and solve it
 lambda_param = 10.0
-lambda_param_1 = np.sqrt(np.linalg.norm(dxdt_std)) + 0.1
+lambda_param_1 = (np.linalg.norm(dxdt_std)) + 0.1
 print(lambda_param_1)
 sbl_x1 = SBL(
     dict_mtx=A, data_vec=dxdt, lambda_param=lambda_param_1, dict_fcns=d_f
 )
 sbl_x1.compute_model_structure()
 
-lambda_param_2 = np.sqrt(np.linalg.norm(dydt_std)) + 0.1
+lambda_param_2 = (np.linalg.norm(dydt_std)) + 0.1
 print(lambda_param_2)
 sbl_x2 = SBL(
     dict_mtx=A, data_vec=dydt, lambda_param=lambda_param_2, dict_fcns=d_f
 )
 sbl_x2.compute_model_structure()
 
-lambda_param_3 =    (np.linalg.norm(dzdt_std)) + 0.1
+lambda_param_3 = (np.linalg.norm(dzdt_std)) + 0.1
 print(lambda_param_3)
 sbl_x3 = SBL(
     dict_mtx=A, data_vec=dzdt, lambda_param=lambda_param_3, dict_fcns=d_f
@@ -193,9 +169,9 @@ ode_model = StateSpaceModel(
 print("Estimated ODE model:")
 print(ode_model)
 states = ["x", "y", "z"]
-y0 = [1.0, 10.0, 10.0]
-sol_ode = solve_ivp(fun=ode_model.get_rhs, t_span=t_span, t_eval=t, y0=y0, args=(states,))
-
+y0 = [10.0, 10.0, 10.0]
+sol_ode = solve_ivp(fun=ode_model.get_rhs, t_span=t_span, t_eval=t_gp, y0=y0, args=(states,))
+sol_ode = sol_ode
 plt.figure(2)
 plt.subplot(221)
 t_orig, y_orig = gm.get_measurements()
@@ -216,12 +192,12 @@ plt.xlabel("time")
 plt.ylabel("Observed state")
 plt.title("Estimation")
 plt.grid()
-plt.subplot(223)
-plt.plot(y_orig[0, :], y_orig[1, :])
+plt.subplot(223, projection='3d')
+plt.plot(y_orig[0, :], y_orig[1, :], y_orig[2, :])
 plt.xlabel(r"$x_1(t)$")
 plt.ylabel(r"$x_2(t)$")
-plt.subplot(224)
-plt.plot(sol_ode.y[0, :], sol_ode.y[1, :])
+plt.subplot(224, projection='3d')
+plt.plot(sol_ode.y[0, :], sol_ode.y[1, :], sol_ode.y[2, :])
 plt.xlabel(r"$\hat{x}_1(t)$")
 plt.ylabel(r"$\hat{x}_2(t)$")
 plt.show()
