@@ -98,7 +98,7 @@ class SBL(object):
     def compute_model_structure(self):
         # TODO transform this into a generator
         # TODO: stop loop upon convergence
-        for _ in range(50):
+        for _ in range(20):
             self.estimate_model_parameters()
             self.update_z()
 

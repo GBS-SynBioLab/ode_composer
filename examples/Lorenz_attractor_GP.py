@@ -19,24 +19,26 @@ print("Original Model:")
 print(ss)
 
 # Adjust model and simulation parameters
-t_span = [0, 5]
+t_span = [0, 10]
 y0 = {"x": 10.0, "y": 10.0, "z": 10.0}
-data_points = 500
+data_points = 300
 gp_interpolation_factor = None
 noisy_obs = True
-SNR = 30
+
+SNR = 15
 
 # simulate model
 gm = MeasurementsGenerator(
     ss=ss, time_span=t_span, initial_values=y0, data_points=data_points
 )
-t, y = gm.get_measurements(SNR_db=SNR)
+t, y = gm.get_measurements(SNR_db=SNR, fixed_seed=True)
+t, y_original = gm.get_measurements()
 y_normfactor = np.mean(np.linalg.norm(y, axis=1))
 # Fit a GP, find the derivative and std of each
 gproc = GPSignalPreprocessor(
     t=t,
     y=y[0, :],
-    selected_kernel="RBF",
+    selected_kernel="RatQuad",
     interpolation_factor=gp_interpolation_factor
 )
 x_samples, t_gp = gproc.interpolate(return_extended_time=True, noisy_obs=noisy_obs)
@@ -58,7 +60,7 @@ dydt_std = gproc_2.A_std
 gproc_3 = GPSignalPreprocessor(
     t=t,
     y=y[2, :],
-    selected_kernel="RatQuad",
+    selected_kernel="RatQuad+ExpSineSquared",
     interpolation_factor=gp_interpolation_factor,
 )
 z_samples, _ = gproc_3.interpolate(noisy_obs=noisy_obs)
@@ -79,7 +81,7 @@ z_spline = spline_3.interpolate(t)
 dz_spline = spline_3.calculate_time_derivative(t)
 
 rhs_preprop = RHSEvalSignalPreprocessor(
-    t=t, y=y, rhs_function=ss.get_rhs, states=states
+    t=t, y=y_original, rhs_function=ss.get_rhs, states=states
 )
 
 plt.figure(0)
@@ -122,16 +124,32 @@ plt.xlabel("time")
 plt.legend(loc="best")
 plt.show()
 
+plt.figure()
+plt.plot(t_gp, (dxdt - dx1)**2, label='GP')
+plt.plot(t_gp, (dx_spline-dx1)**2, label='Spline')
+plt.ylabel('Error')
+plt.xlabel('Time')
+plt.title('Spline vs GP squared error in derivative estimation')
+plt.legend()
+plt.show()
+
+print("Gaussian process MSE:")
+print(np.mean((dxdt - dx1)**2))
+
+print("Spline MSE:")
+print(np.mean((dx_spline - dx1)**2))
+
 # step 1 define a dictionary
-d_f = ["x", "y", "z", "x*z", "y*x", "z*y"]
+d_f = ["x", "y", "z", "x*z", "y*x"]
 dict_builder = DictionaryBuilder(dict_fcns=d_f)
 # associate variables with data
+data = {"x": y[0,:].T, "y": y[1,:].T, "z": y[2,:].T}
 data = {"x": x_samples.T, "y": y_samples.T, "z": z_samples.T}
 A = dict_builder.evaluate_dict(input_data=data)
 
 # step 2 define an SBL problem
 # with the Lin reg model and solve it
-lambda_param = 10.0
+lambda_param = 3.0
 lambda_param_1 = (np.linalg.norm(dxdt_std)) + 0.1
 print(lambda_param_1)
 sbl_x1 = SBL(
@@ -171,7 +189,6 @@ print(ode_model)
 states = ["x", "y", "z"]
 y0 = [10.0, 10.0, 10.0]
 sol_ode = solve_ivp(fun=ode_model.get_rhs, t_span=t_span, t_eval=t_gp, y0=y0, args=(states,))
-sol_ode = sol_ode
 plt.figure(2)
 plt.subplot(221)
 t_orig, y_orig = gm.get_measurements()
@@ -201,3 +218,5 @@ plt.plot(sol_ode.y[0, :], sol_ode.y[1, :], sol_ode.y[2, :])
 plt.xlabel(r"$\hat{x}_1(t)$")
 plt.ylabel(r"$\hat{x}_2(t)$")
 plt.show()
+
+print(np.mean((y_orig-sol_ode.y)**2))

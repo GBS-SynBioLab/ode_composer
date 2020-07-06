@@ -36,27 +36,8 @@ class GPSignalPreprocessor(SignalPreprocessor):
         self.interpolation_factor = interpolation_factor
 
         #TODO: fix this to comply with python standards
-        self.t_ext = np.append(t, [t[-1] + t[-1] - t[-2]])
-        self._A_mean_ext = None
-        self._A_std_ext = None
         self.A_mean = None
         self.A_std = None
-
-        @property
-        def A_mean_ext(self):
-            return self._A_mean_ext
-
-        @A_mean_ext.setter
-        def A_mean_ext(self, new_value):
-            self.A_mean = new_value[0:-1]
-
-        @property
-        def A_std_ext(self):
-            return self._A_std_ext
-
-        @A_std_ext.setter
-        def A_std_ext(self, new_value):
-            self.A_std = new_value[0:-1]
 
         # Create different kernels that will be explored
         self.kernels = dict()
@@ -116,34 +97,27 @@ class GPSignalPreprocessor(SignalPreprocessor):
         X = self.t[:, np.newaxis]
         gp.fit(X, self.y)
 
-        #TODO: clean up code
-        X_ext = self.t_ext[:, np.newaxis]
-
         if self.interpolation_factor is None:
-            self.A_mean_ext, self.A_std_ext = gp.predict(X_ext, return_std=True)
-            _, self.K_A_ext = gp.predict(X_ext, return_cov=True)
+            self.A_mean, self.A_std = gp.predict(X, return_std=True)
+            _, self.K_A = gp.predict(X, return_cov=True)
         else:
-            X_extended = np.linspace(self.t_ext[0], self.t_ext[-1], self.interpolation_factor * len(self.t_ext))
+            X_extended = np.linspace(self.t[0], self.t[-1], self.interpolation_factor * len(self.t))
             X_extended = X_extended[:,np.newaxis]
-            self.A_mean_ext, self.A_std_ext = gp.predict(X_extended, return_std=True)
-            _, self.K_A_ext = gp.predict(X_extended, return_cov=True)
-
-        self.A_std = self.A_std_ext[0:-1]
-        self.A_mean = self.A_mean_ext[0:-1]
+            self.A_mean, self.A_std = gp.predict(X_extended, return_std=True)
+            _, self.K_A = gp.predict(X_extended, return_cov=True)
 
 
         if return_extended_time and self.interpolation_factor is not None:
-            X_extended = np.linspace(self.t_ext[0], self.t_ext[-1], self.interpolation_factor * len(self.t_ext))
-            return self.A_mean_ext[0:-1], X_extended[0:-1]
+            X_extended = np.linspace(self.t[0], self.t[-1], self.interpolation_factor * len(self.t))
+            return self.A_mean, X_extended
         else:
-            return self.A_mean_ext[0:-1], self.t
+            return self.A_mean, self.t
 
     def calculate_time_derivative(self):
         dA_mean = np.gradient(self.A_mean)
         if self.interpolation_factor is None:
             dTime = np.gradient(self.t)
         else:
-
             t_extended = np.linspace(self.t[0], self.t[-1], self.interpolation_factor * len(self.t))
             dTime = np.gradient(t_extended)
 

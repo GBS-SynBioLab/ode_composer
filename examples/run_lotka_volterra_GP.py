@@ -5,9 +5,11 @@ from ode_composer.sbl import SBL
 from ode_composer.measurements_generator import MeasurementsGenerator
 import matplotlib.pyplot as plt
 import numpy as np
+import time
 from ode_composer.signal_preprocessor import (
     GPSignalPreprocessor,
     RHSEvalSignalPreprocessor,
+    SplineSignalPreprocessor,
 )
 
 
@@ -21,23 +23,36 @@ print(ss)
 t_span = [0, 30]
 x0 = {"x1": 1.2, "x2": 1.0}
 data_points = 300
+SNR = 8
 # simulate model
 gm = MeasurementsGenerator(
     ss=ss, time_span=t_span, initial_values=x0, data_points=data_points
 )
-t, y = gm.get_measurements(SNR_db=5)
+t, y = gm.get_measurements(SNR_db=SNR, fixed_seed=True)
 
-gproc = GPSignalPreprocessor(t=t, y=y[0, :], selected_kernel="Matern")
-y_samples_1, t_gp = gproc.interpolate(return_extended_time=True)
+start_time = time.time()
+gproc = GPSignalPreprocessor(t=t, y=y[0, :], selected_kernel="RBF")
+y_samples_1, t_gp = gproc.interpolate(return_extended_time=True, noisy_obs=True)
 gproc.calculate_time_derivative()
 dydt_1 = gproc.dydt
 dydt_1_std = gproc.A_std
 
-gproc_2 = GPSignalPreprocessor(t=t, y=y[1, :], selected_kernel="Matern")
-y_samples_2, _ = gproc_2.interpolate()
+gproc_2 = GPSignalPreprocessor(t=t, y=y[1, :], selected_kernel="RatQuad")
+y_samples_2, _ = gproc_2.interpolate(noisy_obs=True)
 gproc_2.calculate_time_derivative()
 dydt_2 = gproc_2.dydt
 dydt_2_std = gproc_2.A_std
+
+print("Time for the estimation of the derivatives through GPs:")
+print(time.time() - start_time)
+
+spline_1 = SplineSignalPreprocessor(t, y[0,:])
+x_spline = spline_1.interpolate(t)
+dx_spline = spline_1.calculate_time_derivative(t)
+
+spline_2 = SplineSignalPreprocessor(t, y[1,:])
+y_spline = spline_2.interpolate(t)
+dy_spline = spline_2.calculate_time_derivative(t)
 
 
 rhs_preprop = RHSEvalSignalPreprocessor(
@@ -70,28 +85,36 @@ plt.legend(loc="best")
 plt.show()
 
 # step 1 define a dictionary
-d_f = ["x1", "x1*x2", "x2", "x2**2", "x1**2", "x1/x2", "x1**2/x2", "x2**2/x1", "1"]
+d_f = ["x1", "x1*x2", "x2", "x1/x2", "x1**2/x2", "x2**2/x1", "1"]
 dict_builder = DictionaryBuilder(dict_fcns=d_f)
 # associate variables with data
 data = {"x1": y_samples_1.T, "x2": y_samples_2.T}
+
+
 A = dict_builder.evaluate_dict(input_data=data)
 
+
+start_time = time.time()
 # step 2 define an SBL problem
 # with the Lin reg model and solve it
-lambda_param_1 = np.sqrt(np.mean(dydt_1_std)) + 0.1
+lambda_param_1 = np.sqrt(np.linalg.norm(dydt_1_std)) + 0.1
+lambda_param_1 = 0.7
 print(lambda_param_1)
 sbl_x1 = SBL(
     dict_mtx=A, data_vec=dydt_1, lambda_param=lambda_param_1, dict_fcns=d_f
 )
 sbl_x1.compute_model_structure()
 
-lambda_param_2 = np.sqrt(np.mean(dydt_2_std)) + 0.1
+lambda_param_2 = np.sqrt(np.linalg.norm(dydt_2_std)) + 0.1
+lambda_param_2 = 0.5
 print(lambda_param_2)
 sbl_x2 = SBL(
     dict_mtx=A, data_vec=dydt_2, lambda_param=lambda_param_2, dict_fcns=d_f
 )
 sbl_x2.compute_model_structure()
 
+print("Time for the structure estimation:")
+print(time.time()-start_time)
 
 # step 4 reporting
 # #build the ODE
