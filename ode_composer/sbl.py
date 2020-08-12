@@ -1,6 +1,7 @@
 import copy
 import cvxpy as cp
 import numpy as np
+import scipy as sci
 from typing import List, Dict, Union
 from .linear_model import LinearModel
 from .dictionary_builder import MultiVariableFunction
@@ -17,7 +18,6 @@ class SBL(object):
     ):
         #L2-normalization D.Wipf et. al - Iterative reweighted l1 and l2 methods for finding sparse solutions
         self.norm_vect = np.linalg.norm(dict_mtx, axis=0)
-        #self.norm_vect = 1
         self.norm_dict = dict_mtx/self.norm_vect
 
         self.linear_model = LinearModel(self.norm_dict, data_vec=data_vec)
@@ -50,7 +50,7 @@ class SBL(object):
         ) ** 2
 
     def regularizer(self, w):
-        return np.sqrt(self.z).T * cp.atoms.elementwise.abs.abs(w)
+        return np.sqrt(self.z).T @ cp.atoms.elementwise.abs.abs(w)
 
     def objective_fn(self, w):
         return self.data_fit(w) + 2*self.lambda_param * self.regularizer(w)
@@ -87,7 +87,12 @@ class SBL(object):
         ) + self.linear_model.dict_mtx @ Gamma_diag @ np.transpose(
             self.linear_model.dict_mtx
         )
-
+        
+        # Making use of different inversion algorithms
+        # SVD --> sci.linalg.pinv2(x)
+        # Cholesky --> np.linalg.inv(np.linalg.cholesky(X))
+        # Using Least Squares --> sci.linalg.pinv(x)
+        # Using Moore-Penrose --> np.linalg.pinv(x)
         self.z = np.diag(
             np.transpose(self.linear_model.dict_mtx)
             @ np.linalg.pinv(Sigma_y)

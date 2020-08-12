@@ -62,14 +62,20 @@ class GPSignalPreprocessor(SignalPreprocessor):
         self.kernels["RBF*ExpSineSquared"] = 1.0 * RBF(length_scale=1.0) * \
                                                 ExpSineSquared(length_scale=1, periodicity=3)
 
-        self.kernels["RatQuad+ExpSineSquared"] = 1.0 * RationalQuadratic(length_scale=1.0) + \
-                                             ExpSineSquared(length_scale=1, periodicity=3)
-
         self.kernels["RatQuad*ExpSineSquared"] = 1.0 * RationalQuadratic(length_scale=1.0, alpha=0.2) * \
-                                             ExpSineSquared(length_scale=1, periodicity=3)
+                                                 ExpSineSquared(length_scale=1, periodicity=3)
 
         self.kernels["Matern*RBF"] = 1.0 * Matern(length_scale=1.0, nu=1.5) * \
                                                 RBF(length_scale=1)
+
+        self.kernels["Matern+ExpSineSquared"] = 1.0 * Matern(length_scale=1.0, nu=1.5) + \
+                                                ExpSineSquared(length_scale=1, periodicity=3)
+
+        self.kernels["RBF+ExpSineSquared"] = 1.0 * RBF(length_scale=1.0) + \
+                                                 ExpSineSquared(length_scale=1, periodicity=3)
+
+        self.kernels["RatQuad+ExpSineSquared"] = 1.0 * RationalQuadratic(length_scale=1.0) + \
+                                                 ExpSineSquared(length_scale=1, periodicity=3)
 
         if selected_kernel not in self.kernels.keys():
             raise KeyError(
@@ -97,14 +103,18 @@ class GPSignalPreprocessor(SignalPreprocessor):
         X = self.t[:, np.newaxis]
         gp.fit(X, self.y)
 
-        if self.interpolation_factor is None:
+        if self.interpolation_factor is None or self.interpolation_factor == 1:
             self.A_mean, self.A_std = gp.predict(X, return_std=True)
             _, self.K_A = gp.predict(X, return_cov=True)
-        else:
+        elif self.interpolation_factor > 0:
             X_extended = np.linspace(self.t[0], self.t[-1], self.interpolation_factor * len(self.t))
             X_extended = X_extended[:,np.newaxis]
             self.A_mean, self.A_std = gp.predict(X_extended, return_std=True)
             _, self.K_A = gp.predict(X_extended, return_cov=True)
+        else:
+            raise KeyError(
+                f"Please ensure the interpolation factor is a positive number"
+            )
 
 
         if return_extended_time and self.interpolation_factor is not None:

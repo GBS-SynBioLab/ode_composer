@@ -23,9 +23,9 @@ t_span = [0, 10]
 y0 = {"x": 10.0, "y": 10.0, "z": 10.0}
 data_points = 300
 gp_interpolation_factor = None
-noisy_obs = True
+noisy_obs = False
 
-SNR = 15
+SNR = None
 
 # simulate model
 gm = MeasurementsGenerator(
