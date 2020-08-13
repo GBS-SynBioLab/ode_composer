@@ -9,6 +9,10 @@
 /*.egg-info
 /.eggs/
 
+# intellij configs
+/.idea/
+
+# IPython, venvs and other
 /examples/.ipynb_checkpoints/
 /.ipynb_checkpoints/
 /examples/Data/
