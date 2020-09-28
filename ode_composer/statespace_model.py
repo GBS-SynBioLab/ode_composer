@@ -2,11 +2,18 @@ from sympy import *
 from typing import List, Dict
 from .util import MultiVariableFunction
 from sympy.parsing.sympy_parser import parse_expr
+from sympy import Matrix
+from .signal_preprocessor import SignalPreprocessor
+import copy
+import re
 
 
 class StateSpaceModel(object):
     def __init__(
-        self, states: Dict[str, Dict[str, str]], parameters: Dict[str, float]
+        self,
+        states: Dict[str, Dict[str, str]],
+        parameters: Dict[str, float],
+        inputs: List[str] = None,
     ):
         """
 
@@ -15,9 +22,11 @@ class StateSpaceModel(object):
             parameters:
         """
         self.state_vector: Dict[str, List[MultiVariableFunction]] = dict()
+        self.inputs = inputs
         # TODO add handling for parameter dict merging
         self.parameters: Dict[str, float] = parameters
-        self.add_state_equation(states, parameters)
+        if states is not None:
+            self.add_state_equation(states, parameters)
 
     @classmethod
     def from_string(cls, states: Dict[str, str], parameters: Dict[str, float]):
@@ -36,6 +45,12 @@ class StateSpaceModel(object):
             d.append({rhs: 1})
         states_dict = dict(zip(states.keys(), d))
         return cls(states=states_dict, parameters=parameters)
+
+    @classmethod
+    def from_sbl(cls, states_dict, parameters, inputs=None):
+        ss_object = cls(states=None, parameters=parameters, inputs=inputs)
+        ss_object.state_vector = states_dict
+        return ss_object
 
     def __repr__(self):
         # TODO replace str.join()
@@ -65,7 +80,7 @@ class StateSpaceModel(object):
             # TODO add check for existing keys!
             self.state_vector[state_var] = func_list
 
-    def get_rhs(self, t, y, states):
+    def get_rhs(self, t, y, states, inputs=None):
         ret = list()
         if len(y) != len(states):
             raise ValueError(
@@ -73,6 +88,21 @@ class StateSpaceModel(object):
             )
         # TODO Check that states are valid, but it must be fast!
         state_map = dict(zip(states, y))
+        if inputs:
+            # inputs are continuous functions
+            processed_inputs = copy.deepcopy(inputs)
+            if all(
+                isinstance(u, SignalPreprocessor)
+                for u in processed_inputs.values()
+            ):
+                for key, u in processed_inputs.items():
+                    processed_inputs[key] = u.interpolate(t)
+            else:
+                raise NotImplementedError(
+                    "only interpolated input is implemented"
+                )
+
+            state_map.update(processed_inputs)
         for state, func_dict in self.state_vector.items():
             rhs_value = 0.0
             for multi_var_fcn in func_dict:
