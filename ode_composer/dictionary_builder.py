@@ -6,7 +6,7 @@ from .util import MultiVariableFunction
 class DictionaryBuilder(object):
     def __init__(self, dict_fcns: List[str]):
         self.dict_fcns: List[MultiVariableFunction] = list()
-        self.regression_mtx = None
+        self.regressor_mtx = None
         for d_f in dict_fcns:
             self.add_dict_fcn(d_f)
 
@@ -16,11 +16,16 @@ class DictionaryBuilder(object):
         )
         self.dict_fcns.append(dict_fcn)
 
-    def evaluate_dict(self, input_data: Dict):
-        reg_mtx = [
-            d_fcn.evaluate_function(measurement_data=input_data)
-            for d_fcn in self.dict_fcns
-        ]
-        self.regression_mtx = np.transpose(np.vstack(reg_mtx))
+    def evaluate_dict(self, input_data: Dict) -> np.ndarray:
+        """Evaluates the symbolic expressions stored in the dictionary with input data.
 
-        return self.regression_mtx
+        The evaluated dictionary, referred to as regressor matrix attribute, is returned."""
+        reg_mtx = []
+        for idx, d_fcn in enumerate(self.dict_fcns):
+            reg_mtx.append(
+                d_fcn.evaluate_function(measurement_data=input_data)
+            )
+            # each dictionary function's weight gets a parameter name
+            d_fcn.constant_name = f"p{idx+1}"
+        self.regressor_mtx = np.transpose(np.vstack(reg_mtx))
+        return self.regressor_mtx
