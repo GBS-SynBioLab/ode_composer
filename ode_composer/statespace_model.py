@@ -58,9 +58,94 @@ class StateSpaceModel(object):
         for state_name, rhs in self.state_vector.items():
             ss += f"d{state_name}/dt = "
             for rr in rhs:
-                ss += f"+{float(rr.constant):.2f}*{rr.symbolic_expression}"
+                ss += f"{float(rr.constant):+.2e}*{rr.symbolic_expression}"
             ss += "\n"
         return ss
+
+    def to_latex(self, filename=None, parameter_table=False):
+        ss = "\\begin{eqnarray}"
+        for state_name, rhs in self.state_vector.items():
+            m = re.search("([a-z]+)([1-9]+)", state_name)
+            ss += "\\frac{d%s_{%s}}{dt} &=& " % (m[1], m[2])
+            param_dict = self.get_parameters_for_state(state_name=state_name)
+            for rr, p_name in zip(rhs, param_dict.keys()):
+                if parameter_table:
+                    m = re.search("([a-z]+)([1-9]+),([1-9]+)", p_name)
+                    p_value = f"+{m[1]}_{{{m[2]},{m[3]}}}"
+                else:
+                    p_value = f"\\num{{{float(rr.constant):+.2e}}}"
+                ss += f"{p_value}{latex(rr.symbolic_expression)}"
+            ss += "\\\ "
+        ss += "\n \\end{eqnarray}"
+
+        if parameter_table:
+            ss += self.get_parameter_table(latex_format=True)
+
+        if filename:
+            with open(filename, "w") as f:
+                f.writelines(ss)
+
+        return ss
+
+    def get_parameter_table(self, latex_format=False):
+        # determine the width of the table
+        max_terms = max([len(v) for v in self.state_vector.values()])
+        # variable for the return string
+        ss = ""
+        if latex_format:
+            sep = " & "
+            new_line = "\\\ "
+            columns = "|c" * max_terms + "|"
+            preamble = (
+                "\\begin{center}\\begin{tabular}{ %s } \\hline\n" % columns
+            )
+            postamble = "\n \\end{tabular}\\end{center}"
+        else:
+            sep = " | "
+            new_line = "\n"
+            preamble = ""
+            postamble = ""
+
+        ss += preamble
+        for state_name in self.state_vector.keys():
+            p_dict = self.get_parameters_for_state(
+                state_name=state_name, latex_format=latex_format
+            )
+            max_width = 9  # using +.2e format that results 9 chars
+            if latex_format:
+                extra_columns = max_terms - len(p_dict)
+                columns = " & " * extra_columns
+            else:
+                columns = ""
+            ss += (
+                sep.join([f"{p:<{max_width}}" for p in list(p_dict.keys())])
+                + columns
+                + new_line
+            )
+            ss += (
+                sep.join([f"{v:+.2e}" for v in list(p_dict.values())])
+                + columns
+                + new_line
+            )
+            if latex_format:
+                ss += "\\hline "
+        ss += postamble
+        return ss
+
+    def get_parameters_for_state(self, state_name, latex_format=False):
+        if state_name not in self.state_vector.keys():
+            raise KeyError(f"Invalid state name: {state_name}")
+        rhs = self.state_vector[state_name]
+        state_num = list(self.state_vector.keys()).index(state_name) + 1
+        param_dict = dict()
+        for rr in rhs:
+            m = re.search("([a-z]+)([1-9]+)", rr.constant_name)
+            if latex_format:
+                p_str = f"${m[1]}_{{{state_num},{m[2]}}}$"
+            else:
+                p_str = f"{m[1]}{state_num},{m[2]}"
+            param_dict.update({p_str: rr.constant})
+        return param_dict
 
     def add_state_equation(
         self, states: Dict[str, Dict[str, str]], parameters: Dict[str, float]
