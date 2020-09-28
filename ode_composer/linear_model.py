@@ -6,8 +6,18 @@ class LinearModel(object):
         self.dict_mtx = dict_mtx
         self.data_vec = data_vec
         param_num = dict_mtx.shape[1]
-        self.w = np.empty((param_num, 1))
-        self.w[:] = np.nan
+        self._w = np.empty((param_num, 1))
+        self._w[:] = np.nan
+
+    @property
+    def w(self) -> np.ndarray:
+        return self._w
+
+    @w.setter
+    def w(self, new_w: np.ndarray):
+        if not isinstance(new_w, np.ndarray):
+            raise TypeError(f"{new_w} is not numpy ndarray, but {type(new_w)}")
+        self._w = new_w
 
     @property
     def dict_mtx(self) -> np.ndarray:
