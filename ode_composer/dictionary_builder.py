@@ -2,6 +2,7 @@ import numpy as np
 from typing import List, Dict
 from .util import MultiVariableFunction
 from itertools import combinations_with_replacement
+from sympy import latex
 
 
 class DictionaryBuilder(object):
@@ -104,3 +105,45 @@ class DictionaryBuilder(object):
         """Returns the string representation of dictionary functions"""
 
         return " | ".join([str(df) for df in self.dict_fcns])
+
+    def print_dictionary(self, latex_format=False):
+        ss = []
+        line_width = 10
+        max_width = max(
+            [len(str(df.symbolic_expression)) for df in self.dict_fcns]
+        )
+        s = []
+        s2 = []
+        if latex_format:
+            sep = " & "
+            new_line = "\\\ "
+            columns = "|c" * line_width + "|"
+            preamble = (
+                "\\begin{center}\\begin{tabular}{ %s } \\hline\n" % columns
+            )
+            postamble = "\n \\end{tabular}\\end{center}"
+        else:
+            sep = " | "
+            new_line = "\n"
+            preamble = ""
+            postamble = ""
+        for idx, df in enumerate(self.dict_fcns):
+            s.append(f"{df.constant_name:<{max_width}}")
+            s2.append(f"${str(latex(df.symbolic_expression)):<{max_width}}$")
+            if (idx + 1) % line_width == 0:
+                ss.append(s)
+                ss.append(s2)
+                s = []
+                s2 = []
+        else:
+            ss.append(s)
+            ss.append(s2)
+
+        print(preamble)
+        for idx, row in enumerate(ss):
+            if (idx + 1) % 2 == 0:
+                hline = "\hline"
+            else:
+                hline = ""
+            print(sep.join(row) + new_line + hline)
+        print(postamble)
