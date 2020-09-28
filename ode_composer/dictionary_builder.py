@@ -147,3 +147,15 @@ class DictionaryBuilder(object):
                 hline = ""
             print(sep.join(row) + new_line + hline)
         print(postamble)
+
+    def __add__(self, other):
+        """Adds to DictionaryBuilder instances together"""
+        if len(self.dict_fcns) == 0 or len(other.dict_fcns) == 0:
+            raise ValueError("Dictionary cannot be empty!")
+        # TODO ZAT: change it to chain or extend
+        return DictionaryBuilder.from_dict_fcns(
+            self.dict_fcns + other.dict_fcns
+        )
+
+    def __len__(self):
+        return len(self.dict_fcns)
