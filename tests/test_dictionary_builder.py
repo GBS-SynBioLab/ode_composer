@@ -48,3 +48,65 @@ def test_evaluate_dict():
     B = np.array([df1_eval, df2_eval]).T
 
     assert np.array_equal(A, B)
+
+
+def test_from_mak_generator():
+    # test normal operation
+    db = DictionaryBuilder.from_mak_generator(number_of_states=2, max_order=2)
+    assert str(db) == " | ".join(["x1*x1", "x1*x2", "x2*x2"])
+
+    db = DictionaryBuilder.from_mak_generator(
+        number_of_states=2, max_order=2, number_of_inputs=1
+    )
+    assert str(db) == " | ".join(
+        [
+            "x1*x1",
+            "x1*x2",
+            "u1*x1",
+            "x2*x2",
+            "u1*x2",
+            "u1*u1",
+        ]
+    )
+
+    # test negative arguments
+    with pytest.raises(
+        ValueError, match=r"Model has to have at least non-state"
+    ):
+        DictionaryBuilder.from_mak_generator(number_of_states=0, max_order=2)
+
+    with pytest.raises(
+        ValueError, match=r"Model has to have at least non-state"
+    ):
+        DictionaryBuilder.from_mak_generator(number_of_states=-5, max_order=2)
+
+    with pytest.raises(
+        ValueError, match=r"The max_order has to be at least one"
+    ):
+        DictionaryBuilder.from_mak_generator(number_of_states=2, max_order=0)
+
+    with pytest.raises(
+        ValueError, match=r"The max_order has to be at least one"
+    ):
+        DictionaryBuilder.from_mak_generator(number_of_states=2, max_order=-4)
+
+    with pytest.raises(
+        ValueError, match=r"The number of inputs cannot be negative"
+    ):
+        DictionaryBuilder.from_mak_generator(
+            number_of_states=2, max_order=2, number_of_inputs=-1
+        )
+
+
+def test_dictionary_builder_addition():
+    db = DictionaryBuilder.from_mak_generator(number_of_states=2, max_order=2)
+    assert len(db) == 3
+    db2 = DictionaryBuilder.from_mak_generator(number_of_states=1, max_order=2)
+    assert len(db2) == 1
+
+    new_dictionary = db + db2
+    assert len(new_dictionary) == 4
+
+    with pytest.raises(ValueError, match=r"Dictionary cannot be empty!"):
+        db3 = db + DictionaryBuilder(dict_fcns=[])
+        len(db3)

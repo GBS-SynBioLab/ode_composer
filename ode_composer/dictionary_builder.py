@@ -1,6 +1,7 @@
 import numpy as np
 from typing import List, Dict
 from .util import MultiVariableFunction
+from itertools import combinations_with_replacement
 
 
 class DictionaryBuilder(object):
@@ -29,3 +30,77 @@ class DictionaryBuilder(object):
             d_fcn.constant_name = f"p{idx+1}"
         self.regressor_mtx = np.transpose(np.vstack(reg_mtx))
         return self.regressor_mtx
+
+    @classmethod
+    def from_mak_generator(
+        cls, number_of_states: int, max_order: int = 2, number_of_inputs=0
+    ):
+        """Build a dictionary with massaction kinetic terms.
+
+        based on the number of states and the maximum order (or chemical complex size)
+        this function generates all the possible polynomial terms.
+
+        >>> db = DictionaryBuilder.from_mak_generator(number_of_states=2, max_order=2)
+        >>> str(db)
+        'x1*x1 | x1*x2 | x2*x2'
+
+        >>> db = DictionaryBuilder.from_mak_generator(number_of_states=2, max_order=2, number_of_inputs=1)
+        >>> str(db)
+        'x1*x1 | x1*x2 | u1*x1 | x2*x2 | u1*x2 | u1*u1'
+
+        Args:
+            number_of_states: number of states the model has, e.g. two means (x_1,x_2)
+            max_order: the maximum number of states in polynomial term, e.g. max_order is three means x_1*x_2^2,  in a two state system
+            number_of_inputs: that are added to the dictionary function (as massaction kinetics terms)
+
+        Returns: DictionaryBuilder object
+
+        """
+        if number_of_states < 1:
+            raise ValueError("Model has to have at least non-state")
+
+        if max_order < 1:
+            raise ValueError("The max_order has to be at least one")
+
+        if number_of_inputs < 0:
+            raise ValueError("The number of inputs cannot be negative")
+
+        states = []
+        for s in range(1, number_of_states + 1):
+            states.append(f"x{s}")
+        if number_of_inputs != 0:
+            for i in range(1, number_of_inputs + 1):
+                states.append(f"u{i}")
+
+        comb = combinations_with_replacement(states, max_order)
+
+        mak_dictionary = []
+        for c in comb:
+            mak_dictionary.append("*".join(c))
+
+        return cls(dict_fcns=mak_dictionary)
+
+    @classmethod
+    def from_hill_generator(
+        cls, state_variable, Km_range, cooperativity_range
+    ):
+        term_list = []
+        for Km in Km_range:
+            for n in cooperativity_range:
+                term_list.append(
+                    f"{state_variable}^{n}/({Km} + {state_variable}^{n})"
+                )
+
+        return cls(dict_fcns=term_list)
+
+    @classmethod
+    def from_dict_fcns(cls, dict_fcn):
+        # TODO change the __init__ to accept MultiVariableFunction as a dictionary
+        instance = cls(dict_fcns=[])
+        instance.dict_fcns = dict_fcn
+        return instance
+
+    def __str__(self):
+        """Returns the string representation of dictionary functions"""
+
+        return " | ".join([str(df) for df in self.dict_fcns])
