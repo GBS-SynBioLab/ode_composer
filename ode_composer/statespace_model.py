@@ -112,3 +112,55 @@ class StateSpaceModel(object):
                 )
             ret.append(rhs_value)
         return ret
+
+    def compute_jacobian(self):
+        # sympy does not work with chain
+        state_names = list(self.state_vector.keys())
+        if len(state_names) == 0:
+            raise ValueError(
+                "At least one state is required for Jacobian computation"
+            )
+        full_rhs = []
+        for state, rhs in self.state_vector.items():
+            full_rhs.append(
+                Add(
+                    *[
+                        c_rhs.constant * c_rhs.symbolic_expression
+                        for c_rhs in rhs
+                    ]
+                )
+            )
+        X = Matrix(full_rhs)
+        jacobian_mtx = X.jacobian(state_names)
+        if self.inputs:
+            merged = state_names + self.inputs
+        else:
+            merged = state_names
+        self.jacobian_mtx = lambdify(
+            args=merged, expr=jacobian_mtx, modules="numpy"
+        )
+
+    def get_jacobian(self, t, y, states, inputs=None):
+        if len(y) != len(states):
+            raise ValueError(
+                f"#states:{len(states)} must be equal to {len(y)}"
+            )
+            # TODO Check that states are valid, but it must be fast!
+        state_map = dict(zip(states, y))
+        if inputs:
+            # inputs are continuous functions
+            processed_inputs = copy.deepcopy(inputs)
+            if all(
+                isinstance(u, SignalPreprocessor)
+                for u in processed_inputs.values()
+            ):
+                for key, u in processed_inputs.items():
+                    processed_inputs[key] = u.interpolate(t)
+            else:
+                raise NotImplementedError(
+                    "only interpolated input is implemented"
+                )
+
+            state_map.update(processed_inputs)
+
+        return self.jacobian_mtx(*state_map.values())
