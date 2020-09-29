@@ -33,6 +33,11 @@ class SBL(object):
         self.state_name = state_name
         self.config = config
         self.non_zero_idx = None
+        # build a dictionary of arguments for problem.solve
+        self.solver_keywords = dict()
+        self.solver_keywords["verbose"] = self.config["verbose"]
+        self.solver_keywords["solver"] = self.config["solver"]["name"]
+        self.solver_keywords.update(self.config["solver"]["settings"])
 
     @property
     def lambda_param(self) -> float:
@@ -60,6 +65,19 @@ class SBL(object):
         if len(new_dict_fcns) == 0:
             raise ValueError("The dictionary functions cannot be empty!")
         self._dict_fcns = new_dict_fcns
+
+    @property
+    def config(self):
+        return self._config
+
+    @config.setter
+    def config(self, new_config):
+        self._config = {
+            "solver": {"name": "ECOS", "show_time": False, "settings": {}},
+            "verbose": False,
+        }
+        if new_config is not None:
+            self._config.update(new_config)
 
     def data_fit(self, w):
         return (1.0 / 2.0) * cp.pnorm(
@@ -92,7 +110,10 @@ class SBL(object):
             constraints=constraints,
         )
         try:
-            problem.solve()
+            problem.solve(**self.solver_keywords)
+
+            if self.config["solver"]["show_time"]:
+                print("solve time:", problem.solver_stats.solve_time)
             if problem.status == cp.OPTIMAL:
                 # TODO update the underlying linear model with the new parameter
                 self.w_estimates.append(w_variable.value)
