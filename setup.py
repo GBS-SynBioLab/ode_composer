@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="ode_composer",
-    version="0.1",
+    version="0.2.2",
     description="Building ODE models from data",
     url="https://github.com/zoltuz/ode_composer_py",
     author="Zoltan A Tuza",
