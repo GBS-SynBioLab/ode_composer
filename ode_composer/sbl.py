@@ -80,14 +80,14 @@ class SBL(object):
             self._config.update(new_config)
 
     def data_fit(self, w):
-        return (1.0 / 2.0) * cp.pnorm(
-            self.linear_model.data_vec - self.linear_model.dict_mtx @ w, p=2
-        ) ** 2
+        return (1.0 / 2.0) * cp.sum_squares(
+            self.linear_model.dict_mtx @ w - self.linear_model.data_vec
+        )
 
     def regularizer(self, w):
         z_sqrt = np.sqrt(self.z.value)
         w_abs = cp.atoms.elementwise.abs.abs(w)
-        return cp.sum(cp.multiply(z_sqrt, w_abs))
+        return z_sqrt @ w_abs
 
     def objective_fn(self, w):
         return self.data_fit(w) + self.lambda_param * self.regularizer(w)
