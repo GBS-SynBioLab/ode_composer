@@ -62,6 +62,10 @@ class StateSpaceModel(object):
             ss += "\n"
         return ss
 
+    def __len__(self) -> int:
+        """The length of the state space model is the number of right hand side terms."""
+        return sum([len(rhs) for rhs in self.state_vector.values()])
+
     def to_latex(self, filename=None, parameter_table=False):
         ss = "\\begin{eqnarray}"
         for state_name, rhs in self.state_vector.items():
