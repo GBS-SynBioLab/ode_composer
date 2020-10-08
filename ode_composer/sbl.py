@@ -20,7 +20,7 @@ class SBL(object):
         config: Dict = None,
     ):
         self.linear_model = LinearModel(dict_mtx, data_vec=data_vec)
-        self.z = cp.Parameter(self.linear_model.parameter_num, 1)
+        self.z = cp.Parameter(self.linear_model.parameter_num)
         self.z.value = np.ones(self.linear_model.parameter_num)
         self.w_estimates: List[float] = list()
         self.z_estimates: List[float] = list()
@@ -219,7 +219,7 @@ class SBL(object):
                 del d_fcns[idx]
             return d_fcns
         else:
-            return dict(zip(self.dict_fcns, w_est))
+            return self.dict_fcns
 
 
 class BatchSBL(object):
