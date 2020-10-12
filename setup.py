@@ -16,6 +16,7 @@ setup(
         "matplotlib",
         "cvxpy",
         "sklearn",
+        "pandas",
     ],
     setup_requires=["pytest-runner"],
     tests_require=["pytest", "pytest-cov", "cvxpy"],
