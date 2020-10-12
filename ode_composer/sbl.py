@@ -127,10 +127,11 @@ class SBL(object):
                     print(
                         f"Problem with the solution from cvxpy: {problem.status}"
                     )
-        except cp.error.SolverError:
-            warnings.warn(
-                f"Solver encountered a problem:{problem.status} {problem.solver_stats}"
-            )
+        except cp.error.SolverError as e:
+            if "The solver" in str(e) and "is not installed." in str(e):
+                raise cp.error.SolverError(e)
+            else:
+                warnings.warn(f"Solver encountered a problem: {e}")
             return False
         else:
             return True

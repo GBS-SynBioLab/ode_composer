@@ -18,5 +18,5 @@ setup(
         "sklearn",
     ],
     setup_requires=["pytest-runner"],
-    tests_require=["pytest", "pytest-cov"],
+    tests_require=["pytest", "pytest-cov", "cvxpy"],
 )
