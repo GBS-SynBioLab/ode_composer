@@ -72,12 +72,15 @@ class SBL(object):
 
     @config.setter
     def config(self, new_config):
+        # TODO ZAT if the config gets to complex, use https://github.com/clarketm/mergedeep
         self._config = {
             "solver": {"name": "ECOS", "show_time": False, "settings": {}},
             "verbose": False,
         }
         if new_config is not None:
             self._config.update(new_config)
+            if "settings" not in self._config["solver"]:
+                self._config["solver"]["settings"] = {}
 
     def data_fit(self, w):
         return (1.0 / 2.0) * cp.sum_squares(
