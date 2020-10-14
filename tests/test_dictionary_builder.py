@@ -110,3 +110,25 @@ def test_dictionary_builder_addition():
     with pytest.raises(ValueError, match=r"Dictionary cannot be empty!"):
         db3 = db + DictionaryBuilder(dict_fcns=[])
         len(db3)
+
+
+def test_positive_hill():
+    db = DictionaryBuilder.from_positive_hill_generator(
+        state_variable="x1", Km_range=[0, 1], cooperativity_range=[1, 2]
+    )
+    assert len(db) == 4
+    # test positive behavior
+    assert db.dict_fcns[0].symbolic_expression.subs("x1", 1) == pytest.approx(
+        1
+    )
+
+
+def test_negative_hill():
+    db = DictionaryBuilder.from_negative_hill_generator(
+        state_variable="x1", Km_range=[0, 1], cooperativity_range=[1, 2]
+    )
+    assert len(db) == 4
+    # test positive behavior
+    assert db.dict_fcns[0].symbolic_expression.subs(
+        "x1", 100
+    ) == pytest.approx(1 / 100)
