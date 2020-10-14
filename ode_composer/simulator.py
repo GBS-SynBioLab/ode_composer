@@ -42,9 +42,12 @@ class SolveStateSpaceModel(object):
         # Event object used to send signals from one thread to another
         self.sol = None
 
-    def compute_solution(self, output_time=None, max_run_time=20):
+    def compute_solution(
+        self, output_time=None, max_run_time=20, ode_config=None
+    ):
+        ode_config = SolveStateSpaceModel._check_ode_config(ode_config)
         action_thread = Thread(
-            target=self._compute_solution, args=(output_time,)
+            target=self._compute_solution, args=(output_time, ode_config)
         )
 
         # Here we start the thread and we wait 5 seconds before the code continues to execute.
@@ -68,22 +71,37 @@ class SolveStateSpaceModel(object):
         stop_event.clear()
         return self.sol
 
-    def _compute_solution(self, output_time=None):
-        self.ss_model.compute_jacobian()
+    def _compute_solution(self, output_time=None, ode_config=None):
         t = time.process_time()
+        if ode_config["use_jac"]:
+            self.ss_model.compute_jacobian()
+            jac = self.ss_model.get_jacobian
+        else:
+            jac = None
+
         self.sol = solve_ivp(
             fun=self.ss_model.get_rhs,
             t_span=self.tspan,
             y0=self.init_cond,
             args=(self.states, self.inputs),
             t_eval=output_time,
-            jac=self.ss_model.get_jacobian,
+            jac=jac,
             events=_watchdog,
+            method=ode_config["method"],
         )
         elapsed_time = time.process_time() - t
-        print(f"elapsed time with jac: {elapsed_time}")
-        # TODO ZAT: add option to use jac or not
-        # TODO ZAT: add option to select ODE solver
+        print(f"elapsed time: {elapsed_time}")
+
+    @staticmethod
+    def _check_ode_config(ode_config):
+        default_ode_config = {
+            "method": "RK45",
+            "use_jac": False,
+            "show_time": False,
+        }
+        if ode_config is not None:
+            default_ode_config.update(ode_config)
+        return default_ode_config
 
 
 class CompareStateSpaceWithData(object):
@@ -102,7 +120,7 @@ class CompareStateSpaceWithData(object):
                 u_preprocessor = ZeroOrderHoldPreprocessor(t=self.t, y=u)
                 self.processed_inputs.update({one_input: u_preprocessor})
 
-    def compute_solution(self, max_run_time=20):
+    def compute_solution(self, max_run_time=20, ode_config=None):
         tspan = [self.t.iloc[0], self.t.iloc[-1]]
         y0 = list(
             self.db.get_multicolumn_datum(
@@ -119,7 +137,9 @@ class CompareStateSpaceWithData(object):
             inputs=self.processed_inputs,
         )
         self.ss_model_solution = self.ss_model_solver.compute_solution(
-            output_time=self.t, max_run_time=max_run_time
+            output_time=self.t,
+            max_run_time=max_run_time,
+            ode_config=ode_config,
         )
         if self.ss_model_solution.status != 0:
             raise ValueError(
