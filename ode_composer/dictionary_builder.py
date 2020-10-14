@@ -82,14 +82,35 @@ class DictionaryBuilder(object):
         return cls(dict_fcns=mak_dictionary)
 
     @classmethod
-    def from_hill_generator(
-        cls, state_variable, Km_range, cooperativity_range
+    def from_positive_hill_generator(
+        cls,
+        state_variable,
+        Km_range,
+        cooperativity_range,
+        proportional_species=None,
     ):
         term_list = []
         for Km in Km_range:
             for n in cooperativity_range:
                 term_list.append(
-                    f"{state_variable}^{n}/({Km} + {state_variable}^{n})"
+                    f"{proportional_species+'*' if proportional_species else ''}{state_variable}^{n}/({Km} + {state_variable}^{n})"
+                )
+
+        return cls(dict_fcns=term_list)
+
+    @classmethod
+    def from_negative_hill_generator(
+        cls,
+        state_variable,
+        Km_range,
+        cooperativity_range,
+        proportional_species=None,
+    ):
+        term_list = []
+        for Km in Km_range:
+            for n in cooperativity_range:
+                term_list.append(
+                    f"{proportional_species if proportional_species else '1'}/({Km} + {state_variable}^{n})"
                 )
 
         return cls(dict_fcns=term_list)
