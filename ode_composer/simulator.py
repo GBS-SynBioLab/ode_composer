@@ -14,6 +14,7 @@ import numpy as np
 from threading import Thread, Event
 import time
 import warnings
+import math
 from statistics import mean
 from itertools import chain, combinations
 
@@ -215,22 +216,20 @@ class CompareStateSpaceWithData(object):
             plt.show()
 
     def plot_model(self, model_name="", file_name=None):
-        plt.figure()
+        fig = plt.figure()
         model_aic = self.compute_aic_for_model()
         model_residual = self.compute_residual_for_model()
         model_performance = (
             f" AIC: {model_aic:.3g} Residual: {model_residual:.3g}"
         )
-        plt.tight_layout()
+
+        fig.subplots_adjust(hspace=0.4, wspace=0.4)
+        for i in list(range(1, len(self.states) + 1)):
+            fig.add_subplot(math.ceil(len(self.states) / 2.0), 2, i)
+            self.plot_state(state_name=f"x{i}", show_fig=False)
+
         plt.suptitle(model_name + model_performance, fontsize=12)
-        plt.subplot(321)
-        self.plot_state(state_name=f"x{1}", show_fig=False)
-        plt.subplot(322)
-        self.plot_state(state_name=f"x{2}", show_fig=False)
-        plt.subplot(325)
-        self.plot_state(state_name=f"x{3}", show_fig=False)
-        plt.subplot(326)
-        self.plot_state(state_name=f"x{4}", show_fig=False)
+
         if file_name:
             plt.savefig(file_name)
         else:
