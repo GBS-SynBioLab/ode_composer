@@ -46,9 +46,7 @@ class SBL(object):
     @lambda_param.setter
     def lambda_param(self, new_lambda_param: float):
         if not isinstance(new_lambda_param, float):
-            raise TypeError(
-                "lambda param is %s, it must be float!" % new_lambda_param
-            )
+            new_lambda_param = float(new_lambda_param)
         if new_lambda_param < 0:
             raise ValueError(
                 "lambda param must be non-negative, not %s!" % new_lambda_param
