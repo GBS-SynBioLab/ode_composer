@@ -89,11 +89,22 @@ class DictionaryBuilder(object):
         cooperativity_range,
         proportional_species=None,
     ):
+        """
+        f(x_1,x_2) = x_2*x_1^n/(Km^n+x_1^n)
+        Args:
+            state_variable:
+            Km_range:
+            cooperativity_range:
+            proportional_species:
+
+        Returns:
+
+        """
         term_list = []
         for Km in Km_range:
             for n in cooperativity_range:
                 term_list.append(
-                    f"{proportional_species+'*' if proportional_species else ''}{state_variable}^{n}/({Km} + {state_variable}^{n})"
+                    f"{proportional_species+'*' if proportional_species else ''}{state_variable}^{n}/({Km}^{n} + {state_variable}^{n})"
                 )
 
         return cls(dict_fcns=term_list)
@@ -110,7 +121,7 @@ class DictionaryBuilder(object):
         for Km in Km_range:
             for n in cooperativity_range:
                 term_list.append(
-                    f"{proportional_species if proportional_species else '1'}/({Km} + {state_variable}^{n})"
+                    f"{proportional_species if proportional_species else '1'}/({Km}^{n} + {state_variable}^{n})"
                 )
 
         return cls(dict_fcns=term_list)
