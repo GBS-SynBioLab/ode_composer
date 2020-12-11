@@ -30,7 +30,9 @@ class Database(object):
         my_file = Path(data_dir + "/" + data_file)
         if not my_file.is_file():
             raise FileNotFoundError(f" file {my_file} does not exist")
-        self.df = pd.read_csv(my_file)
+        self.df = pd.read_csv(my_file, skipinitialspace=True)
+        # remove trailing whitespaces in the header row
+        self.df.rename(columns=lambda x: x.strip(), inplace=True)
 
     def _find_data_label(self, data_label):
         for data_type in self.structure_config.values():
