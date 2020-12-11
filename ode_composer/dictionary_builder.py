@@ -28,7 +28,7 @@ class DictionaryBuilder(object):
                 d_fcn.evaluate_function(measurement_data=input_data)
             )
             # each dictionary function's weight gets a parameter name
-            d_fcn.constant_name = f"p{idx+1}"
+            d_fcn.constant_name = f"w{idx+1}"
         self.regressor_mtx = np.transpose(np.vstack(reg_mtx))
         return self.regressor_mtx
 
