@@ -5,6 +5,7 @@
 #  Imperial College London, London, UK
 #  contact: ztuza@imperial.ac.uk, gstan@imperial.ac.uk
 
+from collections.abc import Iterable
 import pandas as pd
 import numpy as np
 from pathlib import Path
@@ -42,7 +43,7 @@ class Database(object):
         return None
 
     def get_data(self, data_label, exp_id, merge_mode=None):
-        if not isinstance(exp_id, list):
+        if not isinstance(exp_id, Iterable):
             exp_id = [exp_id]
 
         if not isinstance(data_label, str):
@@ -88,7 +89,7 @@ class Database(object):
     def get_preprocessed_data(
         self, data_label, exp_id, preprocessor, merge_mode=None
     ):
-        if not isinstance(exp_id, list):
+        if not isinstance(exp_id, Iterable):
             exp_id = [exp_id]
         # get raw data and the corresponding time vector
         y = self.get_data(
