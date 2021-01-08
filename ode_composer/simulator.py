@@ -235,6 +235,13 @@ class CompareStateSpaceWithData(object):
         else:
             plt.show()
 
+    def compute_mse_for_state(self, state_name) -> float:
+        data = self.db.get_data(data_label=state_name, exp_id=self.exp_id)
+        idx = self.ss_model_solver.states.index(state_name)
+        one_state = self.ss_model_solution.y[idx, :]
+        res = np.square(data - one_state).sum()
+        return res
+
     def compute_residual_for_state(self, state_name) -> float:
         data = self.db.get_data(data_label=state_name, exp_id=self.exp_id)
         idx = self.ss_model_solver.states.index(state_name)
@@ -254,6 +261,14 @@ class CompareStateSpaceWithData(object):
         return 2 * self.compute_residual_for_state(
             state_name=state_name
         ) + 2 * len(self.ss_model.state_vector[state_name])
+
+    def compute_mse_for_model(self):
+        return mean(
+            [
+                self.compute_mse_for_state(state_name=state_name)
+                for state_name in self.states
+            ]
+        )
 
     def compute_residual_for_model(self):
         return mean(
