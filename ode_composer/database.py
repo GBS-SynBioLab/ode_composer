@@ -42,7 +42,14 @@ class Database(object):
 
         return None
 
-    def get_data(self, data_label, exp_id, merge_mode=None):
+    @staticmethod
+    def _standardize_data(data, remove_mean=False):
+        data_std = np.std(data)
+        if remove_mean:
+            data = data - np.mean(data)
+        return data / data_std
+
+    def get_data(self, data_label, exp_id, standardize=True, merge_mode=None):
         if not isinstance(exp_id, Iterable):
             exp_id = [exp_id]
 
@@ -58,7 +65,10 @@ class Database(object):
             ]
             df_column_name = self._find_data_label(data_label=data_label)
             if df_column_name:
-                ret.append(one_exp[df_column_name])
+                data = one_exp[df_column_name]
+                if standardize:
+                    data = Database._standardize_data(data)
+                ret.append(data)
             else:
                 raise ValueError(f"Invalid data label: {data_label}")
         if merge_mode is None:
