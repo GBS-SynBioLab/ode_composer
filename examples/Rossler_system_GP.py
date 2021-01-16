@@ -187,12 +187,20 @@ plt.legend(loc="best")
 plt.show()
 
 # step 1 define a dictionary
-d_f = ["1", "x", "y", "z", "x*z", "y*x", "x**2", "1/x", "y**2", "z**3", "x**3", "y**3"]
+d_f = ["1", "x", "y", "z", "x*z", "y*x"]
 dict_builder = DictionaryBuilder(dict_fcns=d_f)
+dict_functions = dict_builder.dict_fcns
 # associate variables with data
-data = {"x": x_samples.T, "y": y_samples.T, "z": z_samples.T}
+data = {"x": y[0, :].T, "y": y[1, :].T, "z": y[2, :].T}
+#data = {"x": x_samples.T, "y": y_samples.T, "z": z_samples.T}
 A = dict_builder.evaluate_dict(input_data=data)
 
+# step 2 define an SBL problem
+# with the Lin reg model and solve it
+config_dict = {
+    "solver": {"name": "ECOS", "show_time": False, "settings": {}},
+    "verbose": False,
+}
 norm_vect = np.linalg.norm(A, axis=0)
 A_norm = A / norm_vect
 

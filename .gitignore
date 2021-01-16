@@ -164,6 +164,9 @@ pytestdebug.log
 *.mo
 *.pot
 
+# VSCode
+/.vscode
+
 # Django stuff:
 *.log
 local_settings.py
@@ -240,5 +243,8 @@ dmypy.json
 
 # pytype static type analyzer
 .pytype/
+
+# Misc and working folders
+/unfinished_examples
 
 # End of https://www.toptal.com/developers/gitignore/api/python,pycharm
