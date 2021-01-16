@@ -40,6 +40,7 @@ dx3 = dydt_rhs[2, :]
 # step 1 define a dictionary
 d_f = ["x", "y", "z", "x*z", "y*x", "z*y"]
 dict_builder = DictionaryBuilder(dict_fcns=d_f)
+dict_functions = dict_builder.dict_fcns
 # associate variables with data
 data = {"x": y[0, :], "y": y[1, :], "z": y[2, :]}
 A = dict_builder.evaluate_dict(input_data=data)
@@ -48,7 +49,11 @@ A = dict_builder.evaluate_dict(input_data=data)
 # with the Lin reg model and solve it
 lambda_param_1 = 0.5
 sbl_x1 = SBL(
-    dict_mtx=A, data_vec=dx1, lambda_param=lambda_param_1, dict_fcns=d_f
+    dict_mtx=A,
+    data_vec=dx1,
+    lambda_param=lambda_param_1,
+    state_name="x1",
+    dict_fcns=dict_functions,
 )
 start_time = time.time()
 sbl_x1.compute_model_structure()
@@ -57,7 +62,11 @@ print(f"x1 computation took: {elapsed_time}")
 
 lambda_param_2 = 5.0
 sbl_x2 = SBL(
-    dict_mtx=A, data_vec=dx2, lambda_param=lambda_param_2, dict_fcns=d_f
+    dict_mtx=A,
+    data_vec=dx2,
+    lambda_param=lambda_param_2,
+    state_name="x2",
+    dict_fcns=dict_functions,
 )
 start_time = time.time()
 sbl_x2.compute_model_structure()
@@ -66,7 +75,11 @@ print(f"x2 computation took: {elapsed_time}")
 
 lambda_param_3 = 5.0
 sbl_x3 = SBL(
-    dict_mtx=A, data_vec=dx3, lambda_param=lambda_param_3, dict_fcns=d_f
+    dict_mtx=A,
+    data_vec=dx3,
+    lambda_param=lambda_param_3,
+    state_name="x3",
+    dict_fcns=dict_functions,
 )
 start_time = time.time()
 sbl_x3.compute_model_structure()
@@ -76,7 +89,7 @@ print(f"x3 computation took: {elapsed_time}")
 # #build the ODE
 zero_th = 1e-5
 
-ode_model = StateSpaceModel(
+ode_model = StateSpaceModel.from_sbl(
     {
         "x1": sbl_x1.get_results(zero_th=zero_th),
         "x2": sbl_x2.get_results(zero_th=zero_th),

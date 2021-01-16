@@ -45,6 +45,7 @@ dx2 = dydt_rhs[1, :]
 # step 1 define a dictionary
 d_f = ["x1", "x1*x2", "x2"]
 dict_builder = DictionaryBuilder(dict_fcns=d_f)
+dict_functions = dict_builder.dict_fcns
 # print(dict_builder.dict_fcns)
 data = {"x1": y[0, :], "x2": y[1, :]}
 A = dict_builder.evaluate_dict(input_data=data)
@@ -54,12 +55,20 @@ A = dict_builder.evaluate_dict(input_data=data)
 # step 2 define an SBL problem with the Lin reg model and solve it
 lambda_param = 1.0
 sbl_x1 = SBL(
-    dict_mtx=A, data_vec=dx1, dict_fcns=d_f, lambda_param=lambda_param
+    dict_mtx=A,
+    data_vec=dx1,
+    lambda_param=lambda_param,
+    state_name="x1",
+    dict_fcns=dict_functions,
 )
 sbl_x1.compute_model_structure()
 
 sbl_x2 = SBL(
-    dict_mtx=A, data_vec=dx2, dict_fcns=d_f, lambda_param=lambda_param
+    dict_mtx=A,
+    data_vec=dx2,
+    lambda_param=lambda_param,
+    state_name="x2",
+    dict_fcns=dict_functions,
 )
 sbl_x2.compute_model_structure()
 # print('results for dx2/dt')
@@ -98,7 +107,7 @@ zero_th = 1e-5
 # print(sbl_x2.get_results(zero_th=zero_th))
 
 
-ode_model = StateSpaceModel(
+ode_model = StateSpaceModel.from_sbl(
     {
         "x1": sbl_x1.get_results(zero_th=zero_th),
         "x2": sbl_x2.get_results(zero_th=zero_th),

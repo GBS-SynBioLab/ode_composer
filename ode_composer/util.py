@@ -10,6 +10,7 @@ class MultiVariableFunction:
     # TODO restrict this better, check sympy documentation
     fcn_pointer: object
     symbolic_expression: Mul
+    constant_name: str = ""
     constant: float = 1.0
 
     def __repr__(self):

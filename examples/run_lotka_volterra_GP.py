@@ -87,6 +87,7 @@ plt.show()
 # step 1 define a dictionary
 d_f = ["x1", "x1*x2", "x2", "x1/x2", "x1**2/x2", "x2**2/x1", "1"]
 dict_builder = DictionaryBuilder(dict_fcns=d_f)
+dict_functions = dict_builder.dict_fcns
 # associate variables with data
 data = {"x1": y_samples_1.T, "x2": y_samples_2.T}
 
@@ -101,7 +102,11 @@ lambda_param_1 = np.sqrt(np.linalg.norm(dydt_1_std)) + 0.1
 lambda_param_1 = 0.7
 print(lambda_param_1)
 sbl_x1 = SBL(
-    dict_mtx=A, data_vec=dydt_1, lambda_param=lambda_param_1, dict_fcns=d_f
+    dict_mtx=A,
+    data_vec=dydt_1,
+    lambda_param=lambda_param_1,
+    state_name="x1",
+    dict_fcns=dict_functions,
 )
 sbl_x1.compute_model_structure()
 
@@ -109,7 +114,11 @@ lambda_param_2 = np.sqrt(np.linalg.norm(dydt_2_std)) + 0.1
 lambda_param_2 = 0.5
 print(lambda_param_2)
 sbl_x2 = SBL(
-    dict_mtx=A, data_vec=dydt_2, lambda_param=lambda_param_2, dict_fcns=d_f
+    dict_mtx=A,
+    data_vec=dydt_2,
+    lambda_param=lambda_param_2,
+    state_name="x2",
+    dict_fcns=dict_functions,
 )
 sbl_x2.compute_model_structure()
 
@@ -120,7 +129,7 @@ print(time.time()-start_time)
 # #build the ODE
 zero_th = 1e-5
 
-ode_model = StateSpaceModel(
+ode_model = StateSpaceModel.from_sbl(
     {
         "x1": sbl_x1.get_results(zero_th=zero_th),
         "x2": sbl_x2.get_results(zero_th=zero_th),

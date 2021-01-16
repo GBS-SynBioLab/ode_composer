@@ -8,6 +8,27 @@ from sklearn.gaussian_process.kernels import (
 )
 import numpy as np
 from scipy.interpolate import CubicSpline
+from collections import defaultdict
+
+
+class BatchSignalPreprocessor(object):
+    def __init__(self, t, data, method):
+        self.prepocessors = defaultdict()
+        if method == "SplineSignalPreprocessor":
+            for key, datum in data.items():
+                self.prepocessors[key] = SplineSignalPreprocessor(t, datum)
+
+    def interpolate(self, t_new):
+        ret_data = defaultdict()
+        for key, preprocessor in self.prepocessors.items():
+            ret_data[key] = preprocessor.interpolate(t_new)
+        return ret_data
+
+    def calculate_time_derivative(self, t_new):
+        ret_data = defaultdict()
+        for key, preprocessor in self.prepocessors.items():
+            ret_data[key] = preprocessor.calculate_time_derivative(t_new)
+        return ret_data
 
 
 class SignalPreprocessor(object):
@@ -147,13 +168,17 @@ class GPSignalPreprocessor(SignalPreprocessor):
 class SplineSignalPreprocessor(SignalPreprocessor):
     def __init__(self, t, y):
         super().__init__(t, y)
+        self.cs = None
 
     def interpolate(self, t_new):
-        self.cs = CubicSpline(self.t, self.y.T)
+        self.cs = CubicSpline(self.t, self.y)
 
         return self.cs(t_new)
 
     def calculate_time_derivative(self, t_new):
+        if self.cs is None:
+            self.interpolate(t_new=t_new)
+
         pp = self.cs.derivative()
         return pp(t_new)
 
@@ -173,3 +198,23 @@ class RHSEvalSignalPreprocessor(SignalPreprocessor):
             rr.append(self.rhs_function(0, yy, self.states))
 
         self._dydt = np.array(rr).T
+
+
+class ZeroOrderHoldPreprocessor(SignalPreprocessor):
+    def __init__(self, t, y):
+        super(ZeroOrderHoldPreprocessor, self).__init__(t=t, y=y)
+
+    def calculate_time_derivative(self):
+        raise NotImplementedError(
+            "Time derivative calculation is not implemented for Zero order hold!"
+        )
+
+    def interpolate(self, t_new):
+        # TODO ZAT support non pandas data format too!
+        ret = []
+        if isinstance(t_new, float):
+            return self.y[abs(self.t - t_new).idxmin()]
+
+        for t_i in t_new:
+            ret.append(self.y[abs(self.t - t_i).idxmin()])
+        return ret

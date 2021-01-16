@@ -4,13 +4,14 @@ sudo: false
 language: python
 python:
   - "3.7"
+  - "3.8"
 
 # Install the codecov pip dependency
 install:
   - pip install codecov
   - pip install pytest
   - pip install pytest-cov
-  - pip install sympy
+  - pip install -r requirements.txt
 
 # command to run tests
 script:
