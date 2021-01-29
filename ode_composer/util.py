@@ -3,6 +3,11 @@ from typing import List, Dict
 from dataclasses import dataclass
 import numpy as np
 from sympy.parsing.sympy_parser import parse_expr
+import math
+import time
+import logging
+
+logger = logging.getLogger("ode_composer")
 
 
 @dataclass
@@ -44,3 +49,22 @@ class MultiVariableFunction:
             symbolic_expression=sym_expr,
             constant=weight,
         )
+
+    def get_constant_sign(self) -> str:
+        sign = math.copysign(1, self.constant)
+        if sign >= 0:
+            return "+"
+        else:
+            return "-"
+
+
+class Timer(object):
+    def __init__(self, name=None):
+        self.name = name
+
+    def __enter__(self):
+        self.tstart = time.time()
+
+    def __exit__(self, type, value, traceback):
+        if self.name:
+            logger.info(f"{self.name} took {time.time() - self.tstart} sec")

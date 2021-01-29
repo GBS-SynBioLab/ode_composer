@@ -5,8 +5,12 @@ from typing import List, Dict, Union
 from .linear_model import LinearModel
 from .dictionary_builder import MultiVariableFunction
 from .errors import SBLError
+from .util import Timer
 import warnings
+import logging
 from sympy import diff
+
+logger = logging.getLogger("ode_composer")
 
 
 class SBL(object):
@@ -114,7 +118,9 @@ class SBL(object):
             problem.solve(**self.solver_keywords)
 
             if self.config["solver"]["show_time"]:
-                print("solve time:", problem.solver_stats.solve_time)
+                logger.info(
+                    f"solve time for {self.state_name}: {problem.solver_stats.solve_time}"
+                )
             if problem.status == cp.OPTIMAL:
                 # TODO update the underlying linear model with the new parameter
                 self.w_estimates.append(w_variable.value)
@@ -279,7 +285,10 @@ class BatchSBL(object):
     def compute_model_structure(self, max_iter=10):
         for SBL_problem in self.SBL_problems:
             try:
-                SBL_problem.compute_model_structure(max_iter=max_iter)
+                with Timer(
+                    name=f"{SBL_problem.state_name} with {max_iter} iter"
+                ):
+                    SBL_problem.compute_model_structure(max_iter=max_iter)
             except SBLError as e:
                 warnings.warn(str(e))
                 self.valid_solutions.append(False)
