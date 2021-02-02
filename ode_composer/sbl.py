@@ -171,8 +171,7 @@ class SBL(object):
 
         self.z.value = np.diag(
             np.transpose(self.linear_model.dict_mtx)
-            @ np.linalg.pinv(Sigma_y, hermitian=True)
-            @ self.linear_model.dict_mtx
+            @ np.linalg.solve(Sigma_y, self.linear_model.dict_mtx)
         )
         self.z_estimates.append(self.z.value)
         self.gamma_estimates.append(gamma)
