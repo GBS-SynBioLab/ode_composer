@@ -1,4 +1,5 @@
 import copy
+import os
 import cvxpy as cp
 import numpy as np
 from typing import List, Dict, Union
@@ -10,7 +11,7 @@ import warnings
 import logging
 from sympy import diff
 
-logger = logging.getLogger("ode_composer")
+logger = logging.getLogger(f"ode_composer_{os.getpid()}")
 
 
 class SBL(object):

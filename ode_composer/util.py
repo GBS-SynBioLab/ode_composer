@@ -6,8 +6,9 @@ from sympy.parsing.sympy_parser import parse_expr
 import math
 import time
 import logging
+import os
 
-logger = logging.getLogger("ode_composer")
+logger = logging.getLogger(f"ode_composer_{os.getpid()}")
 
 
 @dataclass
