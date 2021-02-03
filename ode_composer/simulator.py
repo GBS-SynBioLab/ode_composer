@@ -143,7 +143,7 @@ class CompareStateSpaceWithData(object):
             ode_config=ode_config,
         )
         if self.ss_model_solution.status != 0:
-            raise ValueError(
+            raise ODEError(
                 f"ODE solution error: {self.ss_model_solution.message}"
             )
 
