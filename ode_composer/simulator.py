@@ -17,8 +17,11 @@ import warnings
 import math
 from statistics import mean
 from itertools import chain, combinations
+import logging
+import os
 
 stop_event = Event()
+logger = logging.getLogger(f"ode_composer_{os.getpid()}")
 
 
 def _watchdog(t, y, states, inputs=None):
@@ -235,19 +238,33 @@ class CompareStateSpaceWithData(object):
         else:
             plt.show()
 
-    def compute_mse_for_state(self, state_name) -> float:
+    def _compute_point_diff_for_state(self, state_name):
         data = self.db.get_data(data_label=state_name, exp_id=self.exp_id)
         idx = self.ss_model_solver.states.index(state_name)
         one_state = self.ss_model_solution.y[idx, :]
-        res = np.square(data - one_state).sum()
-        return res
+        point_diff = data - one_state
+        if point_diff.hasnans:
+            msg = f"NaN detected during point difference computation in state {state_name}!"
+            logger.warning(msg)
+            raise ValueError(msg)
+        return point_diff
+
+    def compute_mse_for_state(self, state_name) -> float:
+        try:
+            point_diff = self._compute_point_diff_for_state(state_name)
+        except ValueError:
+            return np.NaN
+        else:
+            return np.square(point_diff).sum()
 
     def compute_residual_for_state(self, state_name) -> float:
         data = self.db.get_data(data_label=state_name, exp_id=self.exp_id)
-        idx = self.ss_model_solver.states.index(state_name)
-        one_state = self.ss_model_solution.y[idx, :]
-        res = (np.sqrt(np.square(data - one_state).sum())) / (2 * len(data))
-        return res
+        try:
+            point_diff = self._compute_point_diff_for_state(state_name)
+        except ValueError:
+            return np.NaN
+        else:
+            return (np.sqrt(np.square(point_diff).sum())) / (2 * len(data))
 
     def compute_aic_for_state(self, state_name):
         """
