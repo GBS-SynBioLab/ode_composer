@@ -280,7 +280,7 @@ class CompareStateSpaceWithData(object):
         ) + 2 * len(self.ss_model.state_vector[state_name])
 
     def compute_mse_for_model(self):
-        return mean(
+        return sum(
             [
                 self.compute_mse_for_state(state_name=state_name)
                 for state_name in self.states
@@ -288,7 +288,7 @@ class CompareStateSpaceWithData(object):
         )
 
     def compute_residual_for_model(self):
-        return mean(
+        return sum(
             [
                 self.compute_residual_for_state(state_name=state_name)
                 for state_name in self.states
