@@ -136,6 +136,32 @@ class DictionaryBuilder(object):
         return f"{proportional_species if proportional_species else '1'}/({Km}^{n} + {variable}^{n})"
 
     @classmethod
+    def from_neg_hill_of_neg_hill_generator(
+        cls,
+        state1,
+        Km1_range,
+        cooperativity1_range,
+        state2,
+        Km2_range,
+        cooperativity2_range,
+    ):
+        terms = []
+        for Km in Km1_range:
+            for n in cooperativity1_range:
+                for Km2 in Km2_range:
+                    for n2 in cooperativity2_range:
+                        neg_hill = cls.negative_hill(
+                            variable=state2, Km=Km2, n=n2
+                        )
+                        terms.append(
+                            cls.negative_hill(
+                                variable=f"{state1}*{neg_hill}", Km=Km, n=n
+                            )
+                        )
+
+        return cls(dict_fcns=terms)
+
+    @classmethod
     def from_dict_fcns(cls, dict_fcn):
         # TODO change the __init__ to accept MultiVariableFunction as a dictionary
         instance = cls(dict_fcns=[])
