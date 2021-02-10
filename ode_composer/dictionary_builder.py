@@ -121,10 +121,19 @@ class DictionaryBuilder(object):
         for Km in Km_range:
             for n in cooperativity_range:
                 term_list.append(
-                    f"{proportional_species if proportional_species else '1'}/({Km}^{n} + {state_variable}^{n})"
+                    cls.negative_hill(
+                        variable=state_variable,
+                        Km=Km,
+                        n=n,
+                        proportional_species=proportional_species,
+                    )
                 )
 
         return cls(dict_fcns=term_list)
+
+    @staticmethod
+    def negative_hill(variable, Km, n, proportional_species=None):
+        return f"{proportional_species if proportional_species else '1'}/({Km}^{n} + {variable}^{n})"
 
     @classmethod
     def from_dict_fcns(cls, dict_fcn):
