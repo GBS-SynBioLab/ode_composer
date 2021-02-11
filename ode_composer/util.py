@@ -33,7 +33,6 @@ class MultiVariableFunction:
                     % (key, self.symbolic_expression)
                 )
             data.append(np.array(measurement_data.get(key)))
-        validate_data(data)
         return self.fcn_pointer(*data)
 
     @staticmethod
