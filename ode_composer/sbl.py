@@ -335,7 +335,14 @@ class ConvergenceMonitor(object):
     The actual convergence test is done by augmented Dickey–Fuller test
     """
 
-    def __init__(self, SBL_problem, min_iter=5, perc_column_conv=0.95):
+    def __init__(
+        self,
+        SBL_problem,
+        min_iter=5,
+        perc_column_conv=0.95,
+        mode="MOV_AVG",
+        mov_avg_th=1e-8,
+    ):
         """Initialize a Convergence Monitor instance
 
         Args:
@@ -347,6 +354,9 @@ class ConvergenceMonitor(object):
         self.SBL_problem = SBL_problem
         self.perc_column_conv = perc_column_conv
         self.converged = False
+        self.mode = mode
+        self.mov_avg_th = mov_avg_th
+        self.p_value = 0.05
 
     def calculate_convergence(self):
         all_time_series = self.SBL_problem.gamma_estimates
@@ -357,18 +367,36 @@ class ConvergenceMonitor(object):
             status = []
             for column_idx in range(0, column_number):
                 # extract the column_idx item from each list
-                adfuller_result = adfuller(
-                    list(np.array(all_time_series).T[column_idx])
-                )
-                # get the probability that null hypothesis will not be rejected
-                status.append(adfuller_result[1])
+                gamma_values = list(np.array(all_time_series).T[column_idx])
+                if self.mode == "MOV_AVG":
+                    status.append(self._moving_avg(gamma_values))
+                elif self.mode == "ADF":
+                    status.append(self._adfuller_mode(gamma_values))
+                else:
+                    raise ValueError(f"{self.mode} is not a valid mode!")
 
-            converged = [idx <= 0.05 for idx in status].count(True)
+            converged = status.count(True)
             logger.debug(
                 f"in {self.SBL_problem.state_name} so far {converged} out of {column_number} has converged after {iter_num} iterations"
             )
+
             if converged >= column_number * 0.9:
                 self.converged = True
+
+    def _adfuller_mode(self, gamma_values):
+        adfuller_result = adfuller(gamma_values)
+        # get the probability that null hypothesis will not be rejected
+        status = adfuller_result[1]
+        if status < self.p_value:
+            return True
+        else:
+            return False
+
+    def _moving_avg(self, gamma_values):
+        return (
+            np.mean(gamma_values[-(self.min_iter - 1) :]) - gamma_values[-1]
+            < self.mov_avg_th
+        )
 
     def is_converged(self):
         return self.converged
