@@ -10,6 +10,7 @@ from .util import Timer
 import warnings
 import logging
 from sympy import diff
+from statsmodels.tsa.stattools import adfuller
 
 logger = logging.getLogger(f"ode_composer_{os.getpid()}")
 
@@ -79,6 +80,7 @@ class SBL(object):
         self._config = {
             "solver": {"name": "ECOS", "show_time": False, "settings": {}},
             "verbose": False,
+            "monitor_conv": False,
         }
         if new_config is not None:
             self._config.update(new_config)
@@ -182,11 +184,20 @@ class SBL(object):
     def compute_model_structure(self, max_iter=10):
         # TODO transform this into a generator
         self._init_opt_problem()
+        # initialize convergence monitor
+        conv_monitor = ConvergenceMonitor(SBL_problem=self)
         for idx in range(max_iter):
             if self.estimate_model_parameters():
                 # model parameters were successfully estimated
                 self.update_z()
                 self.compute_non_zero_idx()
+                if self.config["monitor_conv"]:
+                    conv_monitor.calculate_convergence()
+                    if conv_monitor.is_converged():
+                        logger.info(
+                            f"convergence threshold has been reached, SBL on {self.state_name} has stopped"
+                        )
+                        break
             else:
                 # the solver encountered an error, let's see if partial results are available
                 if idx > 0:
@@ -315,3 +326,49 @@ class BatchSBL(object):
                 SBL_problem.get_results(zero_th=zero_th)
                 for SBL_problem in self.SBL_problems
             ]
+
+
+class ConvergenceMonitor(object):
+    """A convergence monitor that calculates the number of dictionary indices that has converged to a
+    stationary value based on the gamma estimates in SBL_problem.
+
+    The actual convergence test is done by augmented Dickey–Fuller test
+    """
+
+    def __init__(self, SBL_problem, min_iter=5, perc_column_conv=0.95):
+        """Initialize a Convergence Monitor instance
+
+        Args:
+            SBL_problem: instance of an SBL class
+            min_iter: minimum number of iterations before convergence is checked
+            perc_column_conv: percentage of columns that are converged
+        """
+        self.min_iter = min_iter
+        self.SBL_problem = SBL_problem
+        self.perc_column_conv = perc_column_conv
+        self.converged = False
+
+    def calculate_convergence(self):
+        all_time_series = self.SBL_problem.gamma_estimates
+        column_number = len(self.SBL_problem.dict_fcns)
+        iter_num = len(all_time_series)
+
+        if iter_num >= self.min_iter:
+            status = []
+            for column_idx in range(0, column_number):
+                # extract the column_idx item from each list
+                adfuller_result = adfuller(
+                    list(np.array(all_time_series).T[column_idx])
+                )
+                # get the probability that null hypothesis will not be rejected
+                status.append(adfuller_result[1])
+
+            converged = [idx <= 0.05 for idx in status].count(True)
+            logger.debug(
+                f"in {self.SBL_problem.state_name} so far {converged} out of {column_number} has converged after {iter_num} iterations"
+            )
+            if converged >= column_number * 0.9:
+                self.converged = True
+
+    def is_converged(self):
+        return self.converged
