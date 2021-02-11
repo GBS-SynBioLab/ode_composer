@@ -69,3 +69,8 @@ class Timer(object):
     def __exit__(self, type, value, traceback):
         if self.name:
             logger.info(f"{self.name} took {time.time() - self.tstart} sec")
+
+
+def validate_data(data, data_name=None):
+    if np.isinf(data).any() or np.isnan(data).any():
+        raise ValueError(f"{data_name} contains invalid values!")
