@@ -1,4 +1,5 @@
 import copy
+import os
 import cvxpy as cp
 import numpy as np
 import scipy as sci
@@ -6,8 +7,13 @@ from typing import List, Dict, Union
 from .linear_model import LinearModel
 from .dictionary_builder import MultiVariableFunction
 from .errors import SBLError
+from .util import Timer
 import warnings
+import logging
 from sympy import diff
+from statsmodels.tsa.stattools import adfuller
+
+logger = logging.getLogger(f"ode_composer_{os.getpid()}")
 
 
 class SBL(object):
@@ -75,6 +81,7 @@ class SBL(object):
         self._config = {
             "solver": {"name": "ECOS", "show_time": False, "settings": {}},
             "verbose": False,
+            "monitor_conv": False,
         }
         if new_config is not None:
             self._config.update(new_config)
@@ -95,38 +102,31 @@ class SBL(object):
         return self.data_fit(w) + 2*self.lambda_param * self.regularizer(w)
 
     def estimate_model_parameters(self):
-        w_variable = cp.Variable(self.linear_model.parameter_num)
-        # add constraints to enforce non-negative ODEs solution
-        constraints = []
-        if (
-            self.config is not None
-            and "nonnegative" in self.config
-            and self.state_name is not None
-        ):
-            for idx, d_f in enumerate(self.dict_fcns):
-                if diff(d_f.symbolic_expression, self.state_name) == 0:
-                    constraints.append(w_variable[idx] >= 0)
-
-        problem = cp.Problem(
-            objective=cp.Minimize(self.objective_fn(w=w_variable)),
-            constraints=constraints,
-        )
         try:
-            problem.solve(**self.solver_keywords)
+            self.problem.solve(**self.solver_keywords)
 
             if self.config["solver"]["show_time"]:
+<<<<<<< HEAD
                 print("solve time:", problem.solver_stats.solve_time)
             if problem.status == cp.OPTIMAL:
                 self.w_estimates.append(w_variable.value)
+=======
+                logger.info(
+                    f"solve time for {self.state_name}: {self.problem.solver_stats.solve_time}"
+                )
+            if self.problem.status == cp.OPTIMAL:
+                # TODO update the underlying linear model with the new parameter
+                self.w_estimates.append(self.w_variable.value)
+>>>>>>> 1b326e5defa6b35c3e441f9bbfcdf0fb6c5f9391
             else:
-                if problem.status == cp.OPTIMAL_INACCURATE:
+                if self.problem.status == cp.OPTIMAL_INACCURATE:
                     warnings.warn(
-                        f"Problem with optimization accuracy: {problem.status}"
+                        f"Problem with optimization accuracy: {self.problem.status}"
                     )
-                    self.w_estimates.append(w_variable.value)
+                    self.w_estimates.append(self.w_variable.value)
                 else:
                     print(
-                        f"Problem with the solution from cvxpy: {problem.status}"
+                        f"Problem with the solution from cvxpy: {self.problem.status}"
                     )
         except cp.error.SolverError as e:
             if "The solver" in str(e) and "is not installed." in str(e):
@@ -164,20 +164,47 @@ class SBL(object):
 
         self.z.value = np.diag(
             np.transpose(self.linear_model.dict_mtx)
-            @ np.linalg.pinv(Sigma_y, hermitian=True)
-            @ self.linear_model.dict_mtx
+            @ np.linalg.solve(Sigma_y, self.linear_model.dict_mtx)
         )
         self.z_estimates.append(self.z.value)
         self.gamma_estimates.append(gamma)
         # print(f'state: {self.state_name} Sigma_y cond: {np.linalg.cond(np.linalg.pinv(Sigma_y, hermitian=True))} gamma: {np.divide(np.abs(w_actual),np.sqrt(self.z.value))}')
 
+    def _init_opt_problem(self):
+        self.w_variable = cp.Variable(self.linear_model.parameter_num)
+        # add constraints to enforce non-negative ODEs solution
+        constraints = []
+        if (
+            self.config is not None
+            and "nonnegative" in self.config
+            and self.state_name is not None
+        ):
+            for idx, d_f in enumerate(self.dict_fcns):
+                if diff(d_f.symbolic_expression, self.state_name) == 0:
+                    constraints.append(self.w_variable[idx] >= 0)
+
+        self.problem = cp.Problem(
+            objective=cp.Minimize(self.objective_fn(w=self.w_variable)),
+            constraints=constraints,
+        )
+
     def compute_model_structure(self, max_iter=10):
         # TODO transform this into a generator
+        self._init_opt_problem()
+        # initialize convergence monitor
+        conv_monitor = ConvergenceMonitor(SBL_problem=self)
         for idx in range(max_iter):
             if self.estimate_model_parameters():
                 # model parameters were successfully estimated
                 self.update_z()
                 self.compute_non_zero_idx()
+                if self.config["monitor_conv"]:
+                    conv_monitor.calculate_convergence()
+                    if conv_monitor.is_converged():
+                        logger.info(
+                            f"convergence threshold has been reached, SBL on {self.state_name} has stopped"
+                        )
+                        break
             else:
                 # the solver encountered an error, let's see if partial results are available
                 if idx > 0:
@@ -279,7 +306,10 @@ class BatchSBL(object):
     def compute_model_structure(self, max_iter=10):
         for SBL_problem in self.SBL_problems:
             try:
-                SBL_problem.compute_model_structure(max_iter=max_iter)
+                with Timer(
+                    name=f"{SBL_problem.state_name} with {max_iter} iter"
+                ):
+                    SBL_problem.compute_model_structure(max_iter=max_iter)
             except SBLError as e:
                 warnings.warn(str(e))
                 self.valid_solutions.append(False)
@@ -303,3 +333,77 @@ class BatchSBL(object):
                 SBL_problem.get_results(zero_th=zero_th)
                 for SBL_problem in self.SBL_problems
             ]
+
+
+class ConvergenceMonitor(object):
+    """A convergence monitor that calculates the number of dictionary indices that has converged to a
+    stationary value based on the gamma estimates in SBL_problem.
+
+    The actual convergence test is done by augmented Dickey–Fuller test
+    """
+
+    def __init__(
+        self,
+        SBL_problem,
+        min_iter=5,
+        perc_column_conv=0.95,
+        mode="MOV_AVG",
+        mov_avg_th=1e-8,
+    ):
+        """Initialize a Convergence Monitor instance
+
+        Args:
+            SBL_problem: instance of an SBL class
+            min_iter: minimum number of iterations before convergence is checked
+            perc_column_conv: percentage of columns that are converged
+        """
+        self.min_iter = min_iter
+        self.SBL_problem = SBL_problem
+        self.perc_column_conv = perc_column_conv
+        self.converged = False
+        self.mode = mode
+        self.mov_avg_th = mov_avg_th
+        self.p_value = 0.05
+
+    def calculate_convergence(self):
+        all_time_series = self.SBL_problem.gamma_estimates
+        column_number = len(self.SBL_problem.dict_fcns)
+        iter_num = len(all_time_series)
+
+        if iter_num >= self.min_iter:
+            status = []
+            for column_idx in range(0, column_number):
+                # extract the column_idx item from each list
+                gamma_values = list(np.array(all_time_series).T[column_idx])
+                if self.mode == "MOV_AVG":
+                    status.append(self._moving_avg(gamma_values))
+                elif self.mode == "ADF":
+                    status.append(self._adfuller_mode(gamma_values))
+                else:
+                    raise ValueError(f"{self.mode} is not a valid mode!")
+
+            converged = status.count(True)
+            logger.debug(
+                f"in {self.SBL_problem.state_name} so far {converged} out of {column_number} has converged after {iter_num} iterations"
+            )
+
+            if converged >= column_number * 0.9:
+                self.converged = True
+
+    def _adfuller_mode(self, gamma_values):
+        adfuller_result = adfuller(gamma_values)
+        # get the probability that null hypothesis will not be rejected
+        status = adfuller_result[1]
+        if status < self.p_value:
+            return True
+        else:
+            return False
+
+    def _moving_avg(self, gamma_values):
+        return (
+            np.mean(gamma_values[-(self.min_iter - 1) :]) - gamma_values[-1]
+            < self.mov_avg_th
+        )
+
+    def is_converged(self):
+        return self.converged

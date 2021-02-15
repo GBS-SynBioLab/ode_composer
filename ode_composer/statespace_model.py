@@ -66,6 +66,20 @@ class StateSpaceModel(object):
         """The length of the state space model is the number of right hand side terms."""
         return sum([len(rhs) for rhs in self.state_vector.values()])
 
+    def to_amigo(self):
+        ode_eq = list()
+        for state_name, rhs in self.state_vector.items():
+            ss = ""
+            ss += f"d{state_name}="
+            param_dict = self.get_parameters_for_state(state_name=state_name)
+            for rr, p_name in zip(rhs, param_dict.keys()):
+                m = re.search("([a-z]+)([1-9]+),([1-9]+)", p_name)
+                p_value = f"+{m[1]}{m[2]}_{m[3]}"
+                term = rr.symbolic_expression
+                ss += f"{p_value}*{str(term).replace('**','^')}"
+            ode_eq.append(ss)
+        return ode_eq
+
     def to_latex(self, filename=None, parameter_table=False):
         ss = "\\begin{eqnarray}"
         for state_name, rhs in self.state_vector.items():
@@ -136,7 +150,9 @@ class StateSpaceModel(object):
         ss += postamble
         return ss
 
-    def get_parameters_for_state(self, state_name, latex_format=False):
+    def get_parameters_for_state(
+        self, state_name, latex_format=False, divider=","
+    ):
         if state_name not in self.state_vector.keys():
             raise KeyError(f"Invalid state name: {state_name}")
         rhs = self.state_vector[state_name]
@@ -145,9 +161,9 @@ class StateSpaceModel(object):
         for rr in rhs:
             m = re.search("([a-z]+)([1-9]+)", rr.constant_name)
             if latex_format:
-                p_str = f"${m[1]}_{{{state_num},{m[2]}}}$"
+                p_str = f"${m[1]}_{{{state_num}{divider}{m[2]}}}$"
             else:
-                p_str = f"{m[1]}{state_num},{m[2]}"
+                p_str = f"{m[1]}{state_num}{divider}{m[2]}"
             param_dict.update({p_str: rr.constant})
         return param_dict
 

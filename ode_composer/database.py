@@ -47,7 +47,11 @@ class Database(object):
         data_std = np.std(data)
         if remove_mean:
             data = data - np.mean(data)
-        return data / data_std
+        if data_std == 0:
+            return_data = data
+        else:
+            return_data = data / data_std
+        return return_data
 
     def get_data(self, data_label, exp_id, standardize=True, merge_mode=None):
         if not isinstance(exp_id, Iterable):

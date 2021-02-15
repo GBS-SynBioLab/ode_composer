@@ -130,10 +130,82 @@ class DictionaryBuilder(object):
         for Km in Km_range:
             for n in cooperativity_range:
                 term_list.append(
-                    f"{proportional_species if proportional_species else '1'}/({Km}^{n} + {state_variable}^{n})"
+                    cls.negative_hill(
+                        variable=state_variable,
+                        Km=Km,
+                        n=n,
+                        proportional_species=proportional_species,
+                    )
                 )
 
         return cls(dict_fcns=term_list)
+
+    @staticmethod
+    def negative_hill(variable, Km, n, proportional_species=None):
+        return f"{proportional_species if proportional_species else '1'}/({Km}^{n} + {variable}^{n})"
+
+    @staticmethod
+    def pos_neg_hill(activator, repressor, Km_act, n_act, Km_rep, n_rep):
+        """Positive and Negative Hill representation for combinatorial promoters
+
+        Based on equation 2.25 in BFS Version 1.0b, September 14, 2014
+        http://www.cds.caltech.edu/~murray/books/AM08/pdf/bfs-coreproc_14Sep14.pdf
+        """
+        return f"(({activator}/{Km_act})^{n_act})/(1+({activator}/{Km_act})^{n_act}+({repressor}/{Km_rep})^{n_rep})"
+
+    @classmethod
+    def from_neg_hill_of_neg_hill_generator(
+        cls,
+        state1,
+        Km1_range,
+        cooperativity1_range,
+        state2,
+        Km2_range,
+        cooperativity2_range,
+    ):
+        terms = []
+        for Km in Km1_range:
+            for n in cooperativity1_range:
+                for Km2 in Km2_range:
+                    for n2 in cooperativity2_range:
+                        neg_hill = cls.negative_hill(
+                            variable=state2, Km=Km2, n=n2
+                        )
+                        terms.append(
+                            cls.negative_hill(
+                                variable=f"{state1}*{neg_hill}", Km=Km, n=n
+                            )
+                        )
+
+        return cls(dict_fcns=terms)
+
+    @classmethod
+    def from_pos_neg_hill_generator(
+        cls,
+        state1,
+        Km1_range,
+        cooperativity1_range,
+        state2,
+        Km2_range,
+        cooperativity2_range,
+    ):
+        terms = []
+        for Km in Km1_range:
+            for n in cooperativity1_range:
+                for Km2 in Km2_range:
+                    for n2 in cooperativity2_range:
+                        terms.append(
+                            cls.pos_neg_hill(
+                                activator=state1,
+                                repressor=state2,
+                                Km_act=Km,
+                                n_act=n,
+                                Km_rep=Km2,
+                                n_rep=n2,
+                            )
+                        )
+
+        return cls(dict_fcns=terms)
 
     @classmethod
     def from_dict_fcns(cls, dict_fcn):
