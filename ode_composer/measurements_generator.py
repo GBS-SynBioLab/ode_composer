@@ -31,18 +31,14 @@ class MeasurementsGenerator(object):
 
         self.sol = sol
 
-    def get_measurements(self, SNR_db=None, fixed_seed=False):
+    def get_measurements(self, SNR_db=None):
         if SNR_db is not None:
             y_measured = np.zeros(shape=self.sol.y.shape)
             SNR = 10 ** (SNR_db / 10)
             for idx, y in enumerate(self.sol.y):
                 Esym = np.sum(abs(y) ** 2) / len(y)
                 N_PSD = (Esym) / SNR
-                if fixed_seed:
-                    np.random.seed(42)
-                y_measured[idx, :] = y + np.sqrt(N_PSD) * np.random.randn(
-                    len(y)
-                )
+                
         else:
             y_measured = self.sol.y
 

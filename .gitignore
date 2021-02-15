@@ -189,6 +189,7 @@ target/
 
 # Jupyter Notebook
 .ipynb_checkpoints
+ode_composer/.ipynb_checkpoints
 
 # IPython
 profile_default/
