@@ -21,6 +21,7 @@ class Database(object):
         self.df = None
         self.structure_config = structure_config
         self.data_file = None
+        self.cache_folder = None
 
     @property
     def structure_config(self):
@@ -31,7 +32,7 @@ class Database(object):
         # TODO add checks
         self._structure_config = new_config
 
-    def import_data(self, data_dir, data_file):
+    def import_data(self, data_dir, data_file, cache_folder=None):
         my_file = Path(data_dir + "/" + data_file)
         self.data_file = my_file.stem
         if not my_file.is_file():
@@ -39,6 +40,7 @@ class Database(object):
         self.df = pd.read_csv(my_file, skipinitialspace=True)
         # remove trailing whitespaces in the header row
         self.df.rename(columns=lambda x: x.strip(), inplace=True)
+        self.cache_folder = cache_folder
 
     def _find_data_label(self, data_label):
         for data_type in self.structure_config.values():
@@ -157,7 +159,11 @@ class Database(object):
                 weights = None
 
             spline_preproc = preprocessor_ref(
-                t=one_t, y=one_y, weights=weights, spline_id=spline_id
+                t=one_t,
+                y=one_y,
+                weights=weights,
+                spline_id=spline_id,
+                cache_folder=self.cache_folder,
             )
             interpolated = spline_preproc.interpolate(t_new=one_t)
             if standardize:

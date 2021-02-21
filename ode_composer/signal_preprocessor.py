@@ -182,13 +182,20 @@ class ZeroOrderHoldPreprocessor(SignalPreprocessor):
 
 class SmoothingSplinePreprocessor(SignalPreprocessor):
     def __init__(
-        self, t, y, tune_smoothness=True, weights=None, spline_id=None
+        self,
+        t,
+        y,
+        tune_smoothness=True,
+        weights=None,
+        spline_id=None,
+        cache_folder=None,
     ):
         super().__init__(t, y)
         self.cs = None
         self.s = None
         self.weights = weights
         self.spline_id = spline_id
+        self.cache_folder = cache_folder
 
         if tune_smoothness:
             self.tune_smoothness()
@@ -196,7 +203,9 @@ class SmoothingSplinePreprocessor(SignalPreprocessor):
     def _cache_checked(f):
         def cache_checker(*args, **kwargs):
             self = args[0]
-            cache_manager = CacheManager(cache_id=self.spline_id)
+            cache_manager = CacheManager(
+                cache_id=self.spline_id, cache_folder=self.cache_folder
+            )
             if cache_manager.cache_hit():
                 cached_data = cache_manager.read()
                 self.s = cached_data["smoothness"]
