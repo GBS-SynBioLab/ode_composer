@@ -10,10 +10,13 @@ import json
 
 
 class CacheManager(object):
-    def __init__(self, cache_id, cache_folder="../cache"):
+    def __init__(self, cache_id, cache_folder=None):
         # keep this order otherwise the initialization fails
         self.path = None
-        self.cache_folder = cache_folder
+        if cache_folder:
+            self.cache_folder = cache_folder
+        else:
+            self.cache_folder = "../cache"
         self.cache_id = cache_id
 
     @property
