@@ -122,20 +122,23 @@ class Database(object):
             data_label=data_label,
             exp_id=exp_id,
             merge_mode="list",
-            standardize=False,
+            standardize=standardize,
         )
         if self._find_data_label(f"{data_label}e"):
             ystd = self.get_data(
                 data_label=f"{data_label}e",
                 exp_id=exp_id,
                 merge_mode="list",
-                standardize=False,
+                standardize=standardize,
             )
         else:
             ystd = [None] * len(y)
 
         t = self.get_data(
-            data_label="t", exp_id=exp_id, merge_mode="list", standardize=False
+            data_label="t",
+            exp_id=exp_id,
+            merge_mode="list",
+            standardize=standardize,
         )
         ret_dict = {}
         data_list = []
@@ -149,9 +152,7 @@ class Database(object):
             else:
                 raise ValueError(f"Unknown preprocessor: {preprocessor}")
 
-            spline_id = (
-                f"{self.data_file}_{one_exp_id}_{data_label}_{preprocessor}"
-            )
+            spline_id = f"{self.data_file}_{one_exp_id}_{data_label}_{preprocessor}_standardized_{standardize}"
 
             if one_ystd is not None:
                 weights = 1 / one_ystd
@@ -166,15 +167,11 @@ class Database(object):
                 cache_folder=self.cache_folder,
             )
             interpolated = spline_preproc.interpolate(t_new=one_t)
-            if standardize:
-                interpolated = self._standardize_data(interpolated)
             data_list.append(interpolated)
+
             time_derivated = spline_preproc.calculate_time_derivative(
                 t_new=one_t
             )
-            if standardize:
-                time_derivated = self._standardize_data(time_derivated)
-
             time_derivative_list.append(time_derivated)
 
         if merge_mode is None:
