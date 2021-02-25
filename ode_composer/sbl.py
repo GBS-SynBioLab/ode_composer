@@ -411,3 +411,38 @@ class ConvergenceMonitor(object):
 
     def is_converged(self):
         return self.converged
+
+
+class RefitModel(object):
+    def __init__(self, batch_SBL, dictionary, state_name):
+        self.state_name = state_name
+        self.batch_SBL = batch_SBL
+        self.dictionary = dictionary
+
+    def refit(self, orig_data, data_vec, config, zero_th):
+        # set the lambda to zero, pure data fit, no model selection
+        lambda_param = [0] * len(self.state_name)
+        all_selected_dict_fcns = []
+        dict_mtx = []
+
+        # select the non zero RHS indices and build a new dictionary for each state
+        for sbl in self.batch_SBL.SBL_problems:
+            selected_dict_fcns = sbl.get_results(zero_th=zero_th)
+            all_selected_dict_fcns.append(selected_dict_fcns)
+            sub_dict = DictionaryBuilder.from_dict_fcns(selected_dict_fcns)
+            A = sub_dict.evaluate_dict(input_data=orig_data)
+            dict_mtx.append(A)
+
+        new_sbls = BatchSBL(
+            dict_mtx=dict_mtx,
+            data_vec=data_vec,
+            lambda_param=lambda_param,
+            dict_fcns=all_selected_dict_fcns,
+            state_name=self.state_name,
+            config=config,
+            mode="state_batch",
+        )
+
+        new_sbls.compute_model_structure(max_iter=1)
+
+        return new_sbls
