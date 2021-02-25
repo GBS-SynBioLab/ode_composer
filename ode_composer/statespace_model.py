@@ -159,7 +159,7 @@ class StateSpaceModel(object):
         state_num = list(self.state_vector.keys()).index(state_name) + 1
         param_dict = dict()
         for rr in rhs:
-            m = re.search("([a-z]+)([1-9]+)", rr.constant_name)
+            m = re.search("([a-z]+)([0-9]+)", rr.constant_name)
             if latex_format:
                 p_str = f"${m[1]}_{{{state_num}{divider}{m[2]}}}$"
             else:
