@@ -114,8 +114,9 @@ class CompareStateSpaceWithData(object):
         self.states = list(ss_model.state_vector.keys())
         self.db = db
         self.exp_id = exp_id
+        self.standardize = standardize
         self.t = self.db.get_data(
-            data_label="t", exp_id=self.exp_id, standardize=standardize
+            data_label="t", exp_id=self.exp_id, standardize=self.standardize
         )
 
         self.processed_inputs = None
@@ -125,7 +126,7 @@ class CompareStateSpaceWithData(object):
                 u = db.get_data(
                     data_label=one_input,
                     exp_id=self.exp_id,
-                    standardize=standardize,
+                    standardize=self.standardize,
                 )
                 u_preprocessor = ZeroOrderHoldPreprocessor(t=self.t, y=u)
                 self.processed_inputs.update({one_input: u_preprocessor})
@@ -137,6 +138,7 @@ class CompareStateSpaceWithData(object):
                 data_labels=self.ss_model.state_vector.keys(),
                 exp_id=self.exp_id,
                 index=0,
+                standardize=self.standardize,
             ).values()
         )
 
@@ -195,7 +197,11 @@ class CompareStateSpaceWithData(object):
             )
 
     def plot_state(self, state_name, title=None, show_fig=True):
-        data = self.db.get_data(data_label=state_name, exp_id=self.exp_id)
+        data = self.db.get_data(
+            data_label=state_name,
+            exp_id=self.exp_id,
+            standardize=self.standardize,
+        )
         idx = self.ss_model_solver.states.index(state_name)
         if show_fig:
             plt.figure()

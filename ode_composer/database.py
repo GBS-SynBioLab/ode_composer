@@ -204,10 +204,10 @@ class Database(object):
             )
         return ret_dict
 
-    def get_multicolumn_datum(self, data_labels, exp_id, index):
+    def get_multicolumn_datum(self, data_labels, exp_id, index, **kwargs):
         if not isinstance(exp_id, int):
             raise TypeError("experiment id must be an integer!")
         data = self.get_multicolumn_data(
-            data_labels=data_labels, exp_id=exp_id
+            data_labels=data_labels, exp_id=exp_id, **kwargs
         )
         return {key: datum.iloc[index] for key, datum in data.items()}
