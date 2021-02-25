@@ -310,6 +310,8 @@ class BatchSBL(object):
                 self.valid_solutions.append(True)
 
     def get_results(self, zero_th):
+        if not all(self.valid_solutions):
+            raise SBLError("invalid SBL solution was found!")
         if self.batch_mode == "state_batch":
             ret_dict = {}
             for SBL_problem in self.SBL_problems:
