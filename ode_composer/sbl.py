@@ -189,8 +189,9 @@ class SBL(object):
         for idx in range(max_iter):
             if self.estimate_model_parameters():
                 # model parameters were successfully estimated
-                self.update_z()
-                self.compute_non_zero_idx()
+                if self.lambda_param > 0:
+                    self.update_z()
+                    self.compute_non_zero_idx()
                 if self.config["monitor_conv"]:
                     conv_monitor.calculate_convergence()
                     if conv_monitor.is_converged():
