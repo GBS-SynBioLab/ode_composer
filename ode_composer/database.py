@@ -10,13 +10,18 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 from .signal_preprocessor import SplineSignalPreprocessor
+from .signal_preprocessor import SmoothingSplinePreprocessor
 import warnings
+import matplotlib.pyplot as plt
+import math
 
 
 class Database(object):
     def __init__(self, structure_config):
         self.df = None
         self.structure_config = structure_config
+        self.data_file = None
+        self.cache_folder = None
 
     @property
     def structure_config(self):
@@ -27,13 +32,15 @@ class Database(object):
         # TODO add checks
         self._structure_config = new_config
 
-    def import_data(self, data_dir, data_file):
+    def import_data(self, data_dir, data_file, cache_folder=None):
         my_file = Path(data_dir + "/" + data_file)
+        self.data_file = my_file.stem
         if not my_file.is_file():
             raise FileNotFoundError(f" file {my_file} does not exist")
         self.df = pd.read_csv(my_file, skipinitialspace=True)
         # remove trailing whitespaces in the header row
         self.df.rename(columns=lambda x: x.strip(), inplace=True)
+        self.cache_folder = cache_folder
 
     def _find_data_label(self, data_label):
         for data_type in self.structure_config.values():
@@ -101,25 +108,71 @@ class Database(object):
         return ret_dict
 
     def get_preprocessed_data(
-        self, data_label, exp_id, preprocessor, merge_mode=None
+        self,
+        data_label,
+        exp_id,
+        preprocessor,
+        merge_mode=None,
+        standardize=True,
     ):
         if not isinstance(exp_id, Iterable):
             exp_id = [exp_id]
         # get raw data and the corresponding time vector
         y = self.get_data(
-            data_label=data_label, exp_id=exp_id, merge_mode="list"
+            data_label=data_label,
+            exp_id=exp_id,
+            merge_mode="list",
+            standardize=standardize,
         )
-        t = self.get_data(data_label="t", exp_id=exp_id, merge_mode="list")
+        if self._find_data_label(f"{data_label}e"):
+            ystd = self.get_data(
+                data_label=f"{data_label}e",
+                exp_id=exp_id,
+                merge_mode="list",
+                standardize=standardize,
+            )
+        else:
+            ystd = [None] * len(y)
+
+        t = self.get_data(
+            data_label="t",
+            exp_id=exp_id,
+            merge_mode="list",
+            standardize=standardize,
+        )
         ret_dict = {}
         data_list = []
         time_derivative_list = []
-        for one_t, one_y in zip(t, y):
+        for one_t, one_y, one_ystd, one_exp_id in zip(t, y, ystd, exp_id):
+
             if preprocessor == "SplineSignalPreprocessor":
-                spline_preproc = SplineSignalPreprocessor(t=one_t, y=one_y)
-                data_list.append(spline_preproc.interpolate(t_new=one_t))
-                time_derivative_list.append(
-                    spline_preproc.calculate_time_derivative(t_new=one_t)
-                )
+                preprocessor_ref = SplineSignalPreprocessor
+            elif preprocessor == "SmoothingSplinePreprocessor":
+                preprocessor_ref = SmoothingSplinePreprocessor
+            else:
+                raise ValueError(f"Unknown preprocessor: {preprocessor}")
+
+            spline_id = f"{self.data_file}_{one_exp_id}_{data_label}_{preprocessor}_standardized_{standardize}"
+
+            if one_ystd is not None:
+                weights = 1 / one_ystd
+            else:
+                weights = None
+
+            spline_preproc = preprocessor_ref(
+                t=one_t,
+                y=one_y,
+                weights=weights,
+                spline_id=spline_id,
+                cache_folder=self.cache_folder,
+            )
+            interpolated = spline_preproc.interpolate(t_new=one_t)
+            data_list.append(interpolated)
+
+            time_derivated = spline_preproc.calculate_time_derivative(
+                t_new=one_t
+            )
+            time_derivative_list.append(time_derivated)
 
         if merge_mode is None:
             if len(exp_id) > 1:
@@ -151,10 +204,10 @@ class Database(object):
             )
         return ret_dict
 
-    def get_multicolumn_datum(self, data_labels, exp_id, index):
+    def get_multicolumn_datum(self, data_labels, exp_id, index, **kwargs):
         if not isinstance(exp_id, int):
             raise TypeError("experiment id must be an integer!")
         data = self.get_multicolumn_data(
-            data_labels=data_labels, exp_id=exp_id
+            data_labels=data_labels, exp_id=exp_id, **kwargs
         )
         return {key: datum.iloc[index] for key, datum in data.items()}

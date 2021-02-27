@@ -8,7 +8,11 @@ from sklearn.gaussian_process.kernels import (
 )
 import numpy as np
 from scipy.interpolate import CubicSpline
+from scipy.interpolate import UnivariateSpline
 from collections import defaultdict
+from sklearn.model_selection import LeaveOneOut
+from .util import Timer
+from .cache_manager import CacheManager
 
 
 class BatchSignalPreprocessor(object):
@@ -166,7 +170,7 @@ class GPSignalPreprocessor(SignalPreprocessor):
 
 
 class SplineSignalPreprocessor(SignalPreprocessor):
-    def __init__(self, t, y):
+    def __init__(self, t, y, **kwargs):
         super().__init__(t, y)
         self.cs = None
 
@@ -218,3 +222,89 @@ class ZeroOrderHoldPreprocessor(SignalPreprocessor):
         for t_i in t_new:
             ret.append(self.y[abs(self.t - t_i).idxmin()])
         return ret
+
+
+class SmoothingSplinePreprocessor(SignalPreprocessor):
+    def __init__(
+        self,
+        t,
+        y,
+        tune_smoothness=True,
+        weights=None,
+        spline_id=None,
+        cache_folder=None,
+    ):
+        super().__init__(t, y)
+        self.cs = None
+        self.s = None
+        self.weights = weights
+        self.spline_id = spline_id
+        self.cache_folder = cache_folder
+
+        if tune_smoothness:
+            self.tune_smoothness()
+
+    def _cache_checked(f):
+        def cache_checker(*args, **kwargs):
+            self = args[0]
+            cache_manager = CacheManager(
+                cache_id=self.spline_id, cache_folder=self.cache_folder
+            )
+            if cache_manager.cache_hit():
+                cached_data = cache_manager.read()
+                self.s = cached_data["smoothness"]
+            else:
+                f(*args, **kwargs)
+                data_to_cache = {"smoothness": self.s}
+                cache_manager.write(data_to_cache)
+
+        return cache_checker
+
+    @_cache_checked
+    def tune_smoothness(self):
+        sum_res = [[] for _ in range(len(self.t))]
+
+        loo = LeaveOneOut()
+        sweep = [0] + list(np.logspace(-4, 4, 100)) + [len(self.t)]
+        with Timer(
+            f"CV loop for SmoothingSplinePreprocessor on {self.spline_id}"
+        ):
+            for case_idx, (train_index, test_index) in enumerate(
+                loo.split(self.t)
+            ):
+                if self.weights is not None:
+                    w = self.weights.iloc[train_index]
+                else:
+                    w = None
+                X_train, X_test = (
+                    self.t.iloc[train_index],
+                    self.t.iloc[test_index],
+                )
+                y_train, y_test = (
+                    self.y.iloc[train_index],
+                    self.y.iloc[test_index],
+                )
+                spl = UnivariateSpline(X_train, y_train, w=w)
+
+                for s in sweep:
+                    spl.set_smoothing_factor(s=s)
+                    sum_res[case_idx].append(
+                        np.square(float(y_test - spl(X_test)))
+                    )
+
+        total = np.sum(np.array(sum_res), axis=0)
+
+        s_opt_idx = np.argmin(total)
+        self.s = sweep[s_opt_idx]
+
+    def interpolate(self, t_new):
+        self.cs = UnivariateSpline(self.t, self.y, s=self.s, w=self.weights)
+
+        return self.cs(t_new)
+
+    def calculate_time_derivative(self, t_new):
+        if self.cs is None:
+            self.interpolate(t_new=t_new)
+
+        pp = self.cs.derivative()
+        return pp(t_new)

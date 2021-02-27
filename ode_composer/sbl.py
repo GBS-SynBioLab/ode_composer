@@ -12,6 +12,7 @@ import warnings
 import logging
 from sympy import diff
 from statsmodels.tsa.stattools import adfuller
+from ode_composer.dictionary_builder import DictionaryBuilder
 
 logger = logging.getLogger(f"ode_composer_{os.getpid()}")
 
@@ -196,8 +197,9 @@ class SBL(object):
         for idx in range(max_iter):
             if self.estimate_model_parameters():
                 # model parameters were successfully estimated
-                self.update_z()
-                self.compute_non_zero_idx()
+                if self.lambda_param > 0:
+                    self.update_z()
+                    self.compute_non_zero_idx()
                 if self.config["monitor_conv"]:
                     conv_monitor.calculate_convergence()
                     if conv_monitor.is_converged():
@@ -254,10 +256,12 @@ class SBL(object):
 class BatchSBL(object):
     def __init__(
         self,
-        dict_mtx: np.ndarray,
-        data_vec: np.ndarray,
+        dict_mtx: Union[np.ndarray, List[np.ndarray]],
+        data_vec: Union[np.ndarray, List[np.ndarray]],
         lambda_param: List[float],
-        dict_fcns: List[MultiVariableFunction],
+        dict_fcns: Union[
+            List[MultiVariableFunction], List[List[MultiVariableFunction]]
+        ],
         state_name: Union[str, List[str]],
         config: Dict,
         mode: str,
@@ -266,18 +270,23 @@ class BatchSBL(object):
         self.SBL_problems = []
         self.valid_solutions = []
         if self.batch_mode == "state_batch":
-            if len(data_vec) != len(state_name):
-                raise ValueError("len(data_vec) must equal len(state_name)")
-
-            for one_data_vec, one_state, one_lambda in zip(
-                data_vec, state_name, lambda_param
-            ):
+            if not isinstance(dict_mtx, list):
+                dict_mtx = [dict_mtx] * len(state_name)
+            if not isinstance(dict_fcns[0], list):
+                dict_fcns = [dict_fcns] * len(state_name)
+            for (
+                one_data_vec,
+                one_state,
+                one_lambda,
+                one_dict_mtx,
+                one_dict_fcn,
+            ) in zip(data_vec, state_name, lambda_param, dict_mtx, dict_fcns):
                 self.SBL_problems.append(
                     SBL(
-                        dict_mtx=dict_mtx,
+                        dict_mtx=one_dict_mtx,
                         data_vec=one_data_vec,
                         lambda_param=one_lambda,
-                        dict_fcns=dict_fcns,
+                        dict_fcns=one_dict_fcn,
                         state_name=one_state,
                         config=config,
                     )
@@ -317,6 +326,8 @@ class BatchSBL(object):
                 self.valid_solutions.append(True)
 
     def get_results(self, zero_th):
+        if not all(self.valid_solutions):
+            raise SBLError("invalid SBL solution was found!")
         if self.batch_mode == "state_batch":
             ret_dict = {}
             for SBL_problem in self.SBL_problems:
@@ -407,3 +418,38 @@ class ConvergenceMonitor(object):
 
     def is_converged(self):
         return self.converged
+
+
+class RefitModel(object):
+    def __init__(self, batch_SBL, dictionary, state_name):
+        self.state_name = state_name
+        self.batch_SBL = batch_SBL
+        self.dictionary = dictionary
+
+    def refit(self, orig_data, data_vec, config, zero_th):
+        # set the lambda to zero, pure data fit, no model selection
+        lambda_param = [0] * len(self.state_name)
+        all_selected_dict_fcns = []
+        dict_mtx = []
+
+        # select the non zero RHS indices and build a new dictionary for each state
+        for sbl in self.batch_SBL.SBL_problems:
+            selected_dict_fcns = sbl.get_results(zero_th=zero_th)
+            all_selected_dict_fcns.append(selected_dict_fcns)
+            sub_dict = DictionaryBuilder.from_dict_fcns(selected_dict_fcns)
+            A = sub_dict.evaluate_dict(input_data=orig_data)
+            dict_mtx.append(A)
+
+        new_sbls = BatchSBL(
+            dict_mtx=dict_mtx,
+            data_vec=data_vec,
+            lambda_param=lambda_param,
+            dict_fcns=all_selected_dict_fcns,
+            state_name=self.state_name,
+            config=config,
+            mode="state_batch",
+        )
+
+        new_sbls.compute_model_structure(max_iter=1)
+
+        return new_sbls
