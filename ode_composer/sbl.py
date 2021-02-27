@@ -107,18 +107,12 @@ class SBL(object):
             self.problem.solve(**self.solver_keywords)
 
             if self.config["solver"]["show_time"]:
-<<<<<<< HEAD
-                print("solve time:", problem.solver_stats.solve_time)
-            if problem.status == cp.OPTIMAL:
-                self.w_estimates.append(w_variable.value)
-=======
                 logger.info(
                     f"solve time for {self.state_name}: {self.problem.solver_stats.solve_time}"
                 )
             if self.problem.status == cp.OPTIMAL:
                 # TODO update the underlying linear model with the new parameter
                 self.w_estimates.append(self.w_variable.value)
->>>>>>> 1b326e5defa6b35c3e441f9bbfcdf0fb6c5f9391
             else:
                 if self.problem.status == cp.OPTIMAL_INACCURATE:
                     warnings.warn(

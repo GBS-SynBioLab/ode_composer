@@ -49,9 +49,6 @@ class MultiVariableFunction:
             fcn_pointer=func,
             symbolic_expression=sym_expr,
             constant=weight,
-<<<<<<< HEAD
-        )
-=======
         )
 
     def get_constant_sign(self) -> str:
@@ -77,4 +74,3 @@ class Timer(object):
 def validate_data(data, data_name=None):
     if np.isinf(data).any() or np.isnan(data).any():
         raise ValueError(f"{data_name} contains invalid values!")
->>>>>>> 1b326e5defa6b35c3e441f9bbfcdf0fb6c5f9391

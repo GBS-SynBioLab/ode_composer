@@ -272,3 +272,4 @@ class DictionaryBuilder(object):
 
     def __len__(self):
         return len(self.dict_fcns)
+        

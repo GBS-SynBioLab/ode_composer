@@ -12,6 +12,8 @@
 .idea/**/usage.statistics.xml
 .idea/**/dictionaries
 .idea/**/shelf
+ode_composer/.ipynb_checkpoints
+.ode_composer/.ipynb_checkpoints
 
 # Generated files
 .idea/**/contentModel.xml

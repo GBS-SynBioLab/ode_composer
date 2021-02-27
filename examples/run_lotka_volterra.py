@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 
 # define Lotka-Volerra model
 states = {"x1": "alpha*x1-beta*x1*x2", "x2": "delta*x1*x2-gamma*x2"}
-parameters = {"alpha": 2 / 3, "beta": 4 / 3, "delta": 2, "gamma": 1}
+parameters = {"alpha": 2 / 3, "beta": 4 / 3, "delta": 1, "gamma": 1}
 ss = StateSpaceModel.from_string(states=states, parameters=parameters)
 print("Original Model:")
 print(ss)

@@ -38,6 +38,9 @@ class MeasurementsGenerator(object):
             for idx, y in enumerate(self.sol.y):
                 Esym = np.sum(abs(y) ** 2) / len(y)
                 N_PSD = (Esym) / SNR
+                y_measured[idx, :] = y + np.sqrt(N_PSD) * np.random.randn(
+                     len(y)
+                 )
                 
         else:
             y_measured = self.sol.y
