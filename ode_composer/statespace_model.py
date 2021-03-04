@@ -6,6 +6,8 @@ from sympy import Matrix
 from .signal_preprocessor import SignalPreprocessor
 import copy
 import re
+import matplotlib.pyplot as plt
+import math
 
 
 class StateSpaceModel(object):
@@ -166,6 +168,31 @@ class StateSpaceModel(object):
                 p_str = f"{m[1]}{state_num}{divider}{m[2]}"
             param_dict.update({p_str: rr.constant})
         return param_dict
+
+    def plot_parameter_table(self, file_name=None):
+        plt.style.use("ggplot")
+        fig = plt.figure()
+        fig.subplots_adjust(hspace=0.4, wspace=0.4)
+        for i, state_name in zip(
+            range(1, len(self.state_vector) + 1), self.state_vector.keys()
+        ):
+            fig.add_subplot(len(self.state_vector), 1, i)
+            p_dict = self.get_parameters_for_state(
+                state_name=state_name, latex_format=True
+            )
+            x_pos = [i for i, _ in enumerate(p_dict)]
+            plt.barh(
+                x_pos,
+                [math.log10(abs(p)) for p in p_dict.values()],
+                color="green",
+            )
+            plt.yticks(x_pos, [rf"{p}" for p in p_dict.keys()], fontsize=7)
+            plt.xlabel(r"$\log_{10}(w)$")
+
+        if file_name:
+            plt.savefig(file_name, format="pdf")
+        else:
+            plt.show()
 
     def add_state_equation(
         self, states: Dict[str, Dict[str, str]], parameters: Dict[str, float]
