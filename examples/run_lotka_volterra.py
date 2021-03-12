@@ -18,11 +18,12 @@ print("Original Model:")
 print(ss)
 
 states = ["x1", "x2"]
-t_span = [0, 15]
+t_span = [0, 30]
 x0 = {"x1": 1.2, "x2": 1.0}
+data_points = 200
 # simulate model
 gm = MeasurementsGenerator(ss=ss, time_span=t_span, initial_values=x0)
-t, y = gm.get_measurements(SNR_db=25)
+t, y = gm.get_measurements(SNR_db=15)
 # report
 plt.plot(t, y[0, :], "b", label=r"$x_1(t)$")
 plt.plot(t, y[1, :], "g", label=r"$x_2(t)$")
@@ -52,7 +53,7 @@ A = dict_builder.evaluate_dict(input_data=data)
 # print(f'regressor matrix {A}')
 
 # step 2 define an SBL problem with the Lin reg model and solve it
-lambda_param = 0.0
+lambda_param = 1.0
 sbl_x1 = SBL(
     dict_mtx=A,
     data_vec=dx1,
@@ -61,8 +62,6 @@ sbl_x1 = SBL(
     dict_fcns=dict_functions,
 )
 sbl_x1.compute_model_structure()
-# print('results for dx1/dt')
-# print(sbl_x1.get_results())
 
 sbl_x2 = SBL(
     dict_mtx=A,
@@ -102,10 +101,10 @@ sbl_x2.compute_model_structure()
 #
 # #build the ODE
 zero_th = 1e-5
-print("SBL results for x1:")
-print(sbl_x1.get_results(zero_th=zero_th))
-print("SBL results for x2:")
-print(sbl_x2.get_results(zero_th=zero_th))
+# print("SBL results for x1:")
+# print(sbl_x1.get_results(zero_th=zero_th))
+# print("SBL results for x2:")
+# print(sbl_x2.get_results(zero_th=zero_th))
 
 
 ode_model = StateSpaceModel.from_sbl(
@@ -118,7 +117,7 @@ ode_model = StateSpaceModel.from_sbl(
 print("estimated ODE model:")
 print(ode_model)
 states = ["x1", "x2"]
-t = [0, 100]
+t = [0, 30]
 y0 = [1.2, 1]
 sol_ode = solve_ivp(fun=ode_model.get_rhs, t_span=t, y0=y0, args=(states,))
 # report

@@ -12,6 +12,8 @@
 .idea/**/usage.statistics.xml
 .idea/**/dictionaries
 .idea/**/shelf
+ode_composer/.ipynb_checkpoints
+.ode_composer/.ipynb_checkpoints
 
 # Generated files
 .idea/**/contentModel.xml
@@ -164,6 +166,9 @@ pytestdebug.log
 *.mo
 *.pot
 
+# VSCode
+/.vscode
+
 # Django stuff:
 *.log
 local_settings.py
@@ -186,6 +191,7 @@ target/
 
 # Jupyter Notebook
 .ipynb_checkpoints
+ode_composer/.ipynb_checkpoints
 
 # IPython
 profile_default/
@@ -240,5 +246,8 @@ dmypy.json
 
 # pytype static type analyzer
 .pytype/
+
+# Misc and working folders
+/unfinished_examples
 
 # End of https://www.toptal.com/developers/gitignore/api/python,pycharm

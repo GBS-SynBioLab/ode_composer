@@ -29,6 +29,15 @@ class DictionaryBuilder(object):
             )
             # each dictionary function's weight gets a parameter name
             d_fcn.constant_name = f"w{idx+1}"
+
+        #Ensure constants are evaluated not as a single digit, but as a vector of the same length as the input data
+        for i in range(len(reg_mtx)):
+            if not isinstance(reg_mtx[i], np.ndarray):
+                dict_val = input_data.values()
+                value_iterator = iter(dict_val)
+                first_value = next(value_iterator)
+                reg_mtx[i] = reg_mtx[i]*np.ones_like(first_value)
+
         self.regressor_mtx = np.transpose(np.vstack(reg_mtx))
         return self.regressor_mtx
 
@@ -263,3 +272,4 @@ class DictionaryBuilder(object):
 
     def __len__(self):
         return len(self.dict_fcns)
+        

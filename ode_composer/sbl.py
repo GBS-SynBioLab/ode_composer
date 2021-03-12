@@ -2,6 +2,7 @@ import copy
 import os
 import cvxpy as cp
 import numpy as np
+import scipy as sci
 from typing import List, Dict, Union
 from .linear_model import LinearModel
 from .dictionary_builder import MultiVariableFunction
@@ -99,7 +100,7 @@ class SBL(object):
         return z_sqrt @ w_abs
 
     def objective_fn(self, w):
-        return self.data_fit(w) + self.lambda_param * self.regularizer(w)
+        return self.data_fit(w) + 2*self.lambda_param * self.regularizer(w)
 
     def estimate_model_parameters(self):
         try:

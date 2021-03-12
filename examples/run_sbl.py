@@ -22,8 +22,11 @@ print(f" regressor mtx\n {A}")
 y = np.array([2, 2, 2])
 
 lambda_param = 0.5
+linmodel = LinearModel(A, y, lambda_param)
+
 
 sbl = SBL(dict_mtx=A, data_vec=y, lambda_param=lambda_param)
+
 
 
 sbl.compute_model_structure()

@@ -32,15 +32,14 @@ def test_linear_parameter_and_data_num():
     assert lin_model.parameter_num == lin_model.dict_mtx.shape[1]
     assert lin_model.data_num == lin_model.dict_mtx.shape[0]
 
-
 def test_incompatible_parameters():
-    """data vector update must check the new data vector size compatibility"""
-    A = np.array([[1, 2], [3, 4], [3, 4]])
-    y = np.array([1, 2, 2])
-    lin_model = LinearModel(dict_mtx=A, data_vec=y)
+     """data vector update must check the new data vector size compatibility"""
+     A = np.array([[1, 2], [3, 4], [3, 4]])
+     y = np.array([1, 2, 2])
+     lin_model = LinearModel(dict_mtx=A, data_vec=y)
 
-    with pytest.raises(
-        ValueError,
-        match=r"data has \d+ rows, but the regressor mtx has \d+ columns$",
-    ):
-        lin_model.data_vec = np.array([1, 2])
+     with pytest.raises(
+         ValueError,
+         match=r"data has \d+ rows, but the regressor mtx has \d+ columns$",
+     ):
+         lin_model.data_vec = np.array([1, 2])
