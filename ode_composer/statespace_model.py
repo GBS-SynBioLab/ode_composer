@@ -75,7 +75,7 @@ class StateSpaceModel(object):
             ss += f"d{state_name}="
             param_dict = self.get_parameters_for_state(state_name=state_name)
             for rr, p_name in zip(rhs, param_dict.keys()):
-                m = re.search("([a-z]+)([1-9]+),([1-9]+)", p_name)
+                m = re.search("([a-z]+)([1-9]+),([0-9]+)", p_name)
                 p_value = f"+{m[1]}{m[2]}_{m[3]}"
                 term = rr.symbolic_expression
                 ss += f"{p_value}*{str(term).replace('**','^')}"
