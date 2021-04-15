@@ -182,25 +182,25 @@ class DictionaryBuilder(object):
     @classmethod
     def from_pos_neg_hill_generator(
         cls,
-        state1,
-        Km1_range,
-        cooperativity1_range,
-        state2,
-        Km2_range,
-        cooperativity2_range,
+        activator,
+        Km_pos_range,
+        cooperativity_pos_range,
+        repressor,
+        Km_neg_range,
+        cooperativity_neg_range,
     ):
         terms = []
-        for Km in Km1_range:
-            for n in cooperativity1_range:
-                for Km2 in Km2_range:
-                    for n2 in cooperativity2_range:
+        for Km_pos in Km_pos_range:
+            for n in cooperativity_pos_range:
+                for Km_neg in Km_neg_range:
+                    for n2 in cooperativity_neg_range:
                         terms.append(
                             cls.pos_neg_hill(
-                                activator=state1,
-                                repressor=state2,
-                                Km_act=Km,
+                                activator=activator,
+                                repressor=repressor,
+                                Km_act=Km_pos,
                                 n_act=n,
-                                Km_rep=Km2,
+                                Km_rep=Km_neg,
                                 n_rep=n2,
                             )
                         )
@@ -272,4 +272,3 @@ class DictionaryBuilder(object):
 
     def __len__(self):
         return len(self.dict_fcns)
-        
