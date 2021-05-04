@@ -91,7 +91,8 @@ class StateSpaceModel(object):
             for rr, p_name in zip(rhs, param_dict.keys()):
                 if parameter_table:
                     m = re.search("([a-z]+)([1-9]+),([1-9]+)", p_name)
-                    p_value = f"+{m[1]}_{{{m[2]},{m[3]}}}"
+                    p_sign = rr.get_constant_sign()
+                    p_value = f"{p_sign}{m[1]}_{{{m[2]},{m[3]}}}"
                 else:
                     p_value = f"\\num{{{float(rr.constant):+.2e}}}"
                 ss += f"{p_value}{latex(rr.symbolic_expression)}"
@@ -131,7 +132,7 @@ class StateSpaceModel(object):
             p_dict = self.get_parameters_for_state(
                 state_name=state_name, latex_format=latex_format
             )
-            max_width = 9  # using +.2e format that results 9 chars
+            max_width = 8  # using .2e format that results 8 chars
             if latex_format:
                 extra_columns = max_terms - len(p_dict)
                 columns = " & " * extra_columns
@@ -143,7 +144,7 @@ class StateSpaceModel(object):
                 + new_line
             )
             ss += (
-                sep.join([f"{v:+.2e}" for v in list(p_dict.values())])
+                sep.join([f"{abs(v):.2e}" for v in list(p_dict.values())])
                 + columns
                 + new_line
             )
