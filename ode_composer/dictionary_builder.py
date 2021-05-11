@@ -30,20 +30,25 @@ class DictionaryBuilder(object):
             # each dictionary function's weight gets a parameter name
             d_fcn.constant_name = f"w{idx+1}"
 
-        #Ensure constants are evaluated not as a single digit, but as a vector of the same length as the input data
+        # Ensure constants are evaluated not as a single digit, but as a vector of the same length as the input data
         for i in range(len(reg_mtx)):
             if not isinstance(reg_mtx[i], np.ndarray):
                 dict_val = input_data.values()
                 value_iterator = iter(dict_val)
                 first_value = next(value_iterator)
-                reg_mtx[i] = reg_mtx[i]*np.ones_like(first_value)
+                reg_mtx[i] = reg_mtx[i] * np.ones_like(first_value)
 
         self.regressor_mtx = np.transpose(np.vstack(reg_mtx))
         return self.regressor_mtx
 
     @classmethod
     def from_mak_generator(
-        cls, number_of_states: int, max_order: int = 2, number_of_inputs=0
+        cls,
+        number_of_states: int,
+        max_order: int = 2,
+        number_of_inputs=0,
+        add_states=True,
+        add_inputs=True,
     ):
         """Build a dictionary with massaction kinetic terms.
 
@@ -75,16 +80,22 @@ class DictionaryBuilder(object):
         if number_of_inputs < 0:
             raise ValueError("The number of inputs cannot be negative")
 
+        mak_dictionary = []
         states = []
         for s in range(1, number_of_states + 1):
-            states.append(f"x{s}")
+            state_name = f"x{s}"
+            states.append(state_name)
+            if add_states:
+                mak_dictionary.append(state_name)
         if number_of_inputs != 0:
             for i in range(1, number_of_inputs + 1):
-                states.append(f"u{i}")
+                input_name = f"u{i}"
+                states.append(input_name)
+                if add_inputs:
+                    mak_dictionary.append(input_name)
 
         comb = combinations_with_replacement(states, max_order)
 
-        mak_dictionary = []
         for c in comb:
             mak_dictionary.append("*".join(c))
 
