@@ -40,3 +40,31 @@ def test_solver_not_found():
         match=f"The solver {dummy_solver} is not installed.",
     ):
         sbl.compute_model_structure()
+
+
+def test_sparsity():
+    A = np.array([[1, 2], [2, 7], [2, 5.65]])
+    # standarize the columns of the regressor matrix
+    A[:, 0] = A[:, 0] / np.std(A[:, 0])
+    A[:, 1] = A[:, 1] / np.std(A[:, 1])
+    # measurement data
+    y = np.array([1, 2, 2])
+    x1 = MultiVariableFunction.create_function(
+        rhs_fcn="x1", weight=1, parameters={}
+    )
+    x2 = MultiVariableFunction.create_function(
+        rhs_fcn="x2", weight=1, parameters={}
+    )
+    dict_fcns = [x1, x2]
+    sbl = SBL(
+        dict_mtx=A,
+        data_vec=y,
+        lambda_param=1,
+        dict_fcns=dict_fcns,
+        state_name="x1",
+    )
+    sbl.compute_model_structure()
+
+    w_est = sbl.w_estimates[-1]
+    # the second column's weights is below the zero thrreshold
+    assert abs(w_est[1]) < 1e-8
