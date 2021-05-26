@@ -100,28 +100,44 @@ class SBL(object):
         return z_sqrt @ w_abs
 
     def objective_fn(self, w):
-        return self.data_fit(w) + 2*self.lambda_param * self.regularizer(w)
+        return self.data_fit(w) + 2 * self.lambda_param * self.regularizer(w)
 
     def estimate_model_parameters(self):
+        w_variable = cp.Variable(self.linear_model.parameter_num)
+        # add constraints to enforce non-negative ODEs solution
+        constraints = []
+        if (
+            self.config is not None
+            and "nonnegative" in self.config
+            and self.state_name is not None
+        ):
+            for idx, d_f in enumerate(self.dict_fcns):
+                if diff(d_f.symbolic_expression, self.state_name) == 0:
+                    constraints.append(w_variable[idx] >= 0)
+
+        problem = cp.Problem(
+            objective=cp.Minimize(self.objective_fn(w=w_variable)),
+            constraints=constraints,
+        )
         try:
-            self.problem.solve(**self.solver_keywords)
+            problem.solve(**self.solver_keywords)
 
             if self.config["solver"]["show_time"]:
                 logger.info(
-                    f"solve time for {self.state_name}: {self.problem.solver_stats.solve_time}"
+                    f"solve time for {self.state_name}: {problem.solver_stats.solve_time}"
                 )
-            if self.problem.status == cp.OPTIMAL:
+            if problem.status == cp.OPTIMAL:
                 # TODO update the underlying linear model with the new parameter
-                self.w_estimates.append(self.w_variable.value)
+                self.w_estimates.append(w_variable.value)
             else:
-                if self.problem.status == cp.OPTIMAL_INACCURATE:
+                if problem.status == cp.OPTIMAL_INACCURATE:
                     warnings.warn(
-                        f"Problem with optimization accuracy: {self.problem.status}"
+                        f"Problem with optimization accuracy: {problem.status}"
                     )
-                    self.w_estimates.append(self.w_variable.value)
+                    self.w_estimates.append(w_variable.value)
                 else:
                     print(
-                        f"Problem with the solution from cvxpy: {self.problem.status}"
+                        f"Problem with the solution from cvxpy: {problem.status}"
                     )
         except cp.error.SolverError as e:
             if "The solver" in str(e) and "is not installed." in str(e):
@@ -165,27 +181,8 @@ class SBL(object):
         self.gamma_estimates.append(gamma)
         # print(f'state: {self.state_name} Sigma_y cond: {np.linalg.cond(np.linalg.pinv(Sigma_y, hermitian=True))} gamma: {np.divide(np.abs(w_actual),np.sqrt(self.z.value))}')
 
-    def _init_opt_problem(self):
-        self.w_variable = cp.Variable(self.linear_model.parameter_num)
-        # add constraints to enforce non-negative ODEs solution
-        constraints = []
-        if (
-            self.config is not None
-            and "nonnegative" in self.config
-            and self.state_name is not None
-        ):
-            for idx, d_f in enumerate(self.dict_fcns):
-                if diff(d_f.symbolic_expression, self.state_name) == 0:
-                    constraints.append(self.w_variable[idx] >= 0)
-
-        self.problem = cp.Problem(
-            objective=cp.Minimize(self.objective_fn(w=self.w_variable)),
-            constraints=constraints,
-        )
-
     def compute_model_structure(self, max_iter=10):
         # TODO transform this into a generator
-        self._init_opt_problem()
         # initialize convergence monitor
         conv_monitor = ConvergenceMonitor(SBL_problem=self)
         for idx in range(max_iter):
